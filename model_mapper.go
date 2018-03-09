@@ -15,7 +15,6 @@ type ModelMapper struct {
 type FieldDescriptor struct {
 	Name      string
 	FieldName string
-	Value     interface{}
 	FieldType string
 	Nullable  bool
 	PK        bool
