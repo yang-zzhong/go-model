@@ -1,8 +1,5 @@
 package model
 
-type Model interface {
+type TableNamer interface {
 	TableName() string
-	IdKey() interface{}
 }
-
-type BaseModel struct {}

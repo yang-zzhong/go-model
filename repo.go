@@ -11,14 +11,15 @@ import (
 type Repo struct {
 	model interface{}
 	conn  *sql.DB
+	mm    *ModelMapper
 	*Builder
 }
 
 var conn *sql.DB
 
 func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
-	repo := &Repo{m, conn, NewBuilder(p)}
-	repo.From(repo.model.(Model).TableName())
+	repo := &Repo{m, conn, NewMM(m), NewBuilder(p)}
+	repo.From(repo.model.(TableNamer).TableName())
 
 	return repo
 }
@@ -30,22 +31,14 @@ func (repo *Repo) Fetch() []interface{} {
 	}
 	result := []interface{}{}
 	for rows.Next() {
-		err = rows.Scan(repo.pointers()...)
-		result = append(result, repo.rowValue())
+		err = rows.Scan(repo.mm.FieldReceivers()...)
+		result = append(result, repo.mm.Model())
 	}
 
 	return result
 }
 
 func (repo *Repo) pointers() []interface{} {
-	value := reflect.ValueOf(repo.model).Elem()
-	length := value.NumField()
-	pointers := make([]interface{}, length)
-	for i := 0; i < length; i++ {
-		pointers[i] = value.Field(i).Addr().Interface()
-	}
-
-	return pointers
 }
 
 func (repo *Repo) rowValue() interface{} {
