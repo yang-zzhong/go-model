@@ -31,18 +31,11 @@ func (repo *Repo) Fetch() []interface{} {
 	}
 	result := []interface{}{}
 	for rows.Next() {
-		err = rows.Scan(repo.mm.FieldReceivers()...)
+		err = rows.Scan(repo.mm.ValueReceivers()...)
 		result = append(result, repo.mm.Model())
 	}
 
 	return result
-}
-
-func (repo *Repo) pointers() []interface{} {
-}
-
-func (repo *Repo) rowValue() interface{} {
-	return reflect.ValueOf(repo.model).Elem().Interface()
 }
 
 func (repo *Repo) Update(data map[string]string) {

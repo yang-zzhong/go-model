@@ -79,7 +79,7 @@ func parseTag(tag reflect.TagStruct, fd *FieldDescriptor) {
 	}
 }
 
-func (mm *ModelMapper) FieldReceivers() []interface{} {
+func (mm *ModelMapper) ValueReceivers() []interface{} {
 	receivers := make([]interface{}, len(mm.fds))
 	for i, fd := range mm.fds {
 		receivers[i] = &fd.value
