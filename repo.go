@@ -2,22 +2,22 @@ package model
 
 import (
 	// "time"
-	"reflect"
-	"fmt"
 	"database/sql"
+	"fmt"
 	. "github.com/yang-zzhong/go-querybuilder"
+	"reflect"
 )
 
 type Repo struct {
 	model interface{}
 	conn  *sql.DB
-	*BaseBuilder
+	*Builder
 }
 
 var conn *sql.DB
 
-func NewRepo(m interface{}, conn *sql.DB, p Placeholder) *Repo {
-	repo := &Repo{m, conn, NewBuilder(p).(*BaseBuilder)}
+func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
+	repo := &Repo{m, conn, NewBuilder(p)}
 	repo.From(repo.model.(Model).TableName())
 
 	return repo
@@ -37,7 +37,7 @@ func (repo *Repo) Fetch() []interface{} {
 	return result
 }
 
-func (repo *Repo)pointers() []interface{} {
+func (repo *Repo) pointers() []interface{} {
 	value := reflect.ValueOf(repo.model).Elem()
 	length := value.NumField()
 	pointers := make([]interface{}, length)

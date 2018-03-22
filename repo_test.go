@@ -5,7 +5,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	. "github.com/yang-zzhong/go-querybuilder"
-	."testing"
+	. "testing"
 )
 
 var con *sql.DB
@@ -16,7 +16,7 @@ type User struct {
 	Age       int
 	Level     int
 	Optional  string
-	CreatedAt []uint8			// time.Time
+	CreatedAt []uint8 // time.Time
 }
 
 func (u *User) TableName() string {
@@ -35,8 +35,8 @@ func init() {
 	}
 }
 
-func TestRepo(t * T) {
-	repo := NewRepo(&User{}, con, &MysqlPlaceholder{})
+func TestRepo(t *T) {
+	repo := NewRepo(&User{}, con, &MysqlModifier{})
 	repo.Where("name", LIKE, "yang%")
 	for _, item := range repo.Fetch() {
 		fmt.Println(item)
