@@ -1,16 +1,22 @@
 package model
 
+import (
+	helper "github.com/yang-zzhong/go-helpers"
+	"reflect"
+)
+
 type ModelMapper struct {
-	Fresh  bool
-	model  interface{}
-	fds    []FieldDescriptor
-	fdsMap map[string]int
+	Fresh bool
+	model interface{}
+	fds   map[string]*FieldDescriptor
+	fnFds map[string]*FieldDescriptor
 }
 
 type FieldDescriptor struct {
 	Name      string
 	FieldName string
 	Value     interface{}
+	FieldType string
 	Nullable  bool
 	PK        bool
 	Index     bool
@@ -18,22 +24,20 @@ type FieldDescriptor struct {
 	FK        []string
 }
 
-func NewMM(model interface{}) *ModelMapper {
-	mm = new(ModelMapper)
+func NewModelMapper(model interface{}) *ModelMapper {
+	mm := new(ModelMapper)
 	mm.model = model
-	mm.fd = []FieldDescriptor{}
-	values := reflect.ValueOf(mm.model).Elem()
 	types := reflect.TypeOf(mm.model).Elem()
 	length := types.NumField()
-	mm.fds = make([]FieldDescriptor, length)
-	mm.fdsMap = make(map[string]int)
+	mm.fds = make(map[string]*FieldDescriptor)
+	mm.fnFds = make(map[string]*FieldDescriptor)
 	for i := 0; i < length; i++ {
-		fd = new(FieldDescriptor)
-		fd.Name = types.Field(i).Name()
-		fd.Value = values[i].Addr().Interface()
-		parseTag(types.Field(i).Tag, fd)
-		mm.fds[i] = *fd
-		mm.fdsMap[fd.Name] = i
+		field := types.Field(i)
+		fd := new(FieldDescriptor)
+		fd.Name = field.Name
+		parseTag(field.Tag, fd)
+		mm.fds[fd.Name] = fd
+		mm.fnFds[fd.FieldName] = fd
 	}
 
 	return mm
@@ -41,59 +45,52 @@ func NewMM(model interface{}) *ModelMapper {
 
 /**
  * type User struct {
- *	  Id   		int 	`db:"id,pk"`
- *	  Name 		string 	`db:"name,index"`
- *	  Age  		int		`db:"age,nil"`
- *	  Addr 		string	`db:"address,nil"`
- *	  Code 		string	`db:"code,uk"`
- *	  Area		string	`db:"area" uk:"area-area_code"`
- *	  AreaCode  string  `db:"area_code" uk:"area-area_code"`
+ *	  Id   		int 	`db:"id int[pk]"`
+ *	  Name 		string 	`db:"name varchar(63)[index]"`
+ *	  Age  		int		`db:"age int[nil]"`
+ *	  Addr 		string	`db:"address varchar(256)[nil]"`
+ *	  Code 		string	`db:"code varchar(32)[uk]"`
+ *	  Area		string	`db:"area varchar(32)" uk:"area-area_code"`
+ *	  AreaCode  string  `db:"area_code varchar(32)" uk:"area-area_code"`
  * }
  *
  * type Book struct {
- *	  Id		int 	`db:"id,pk"`
- *	  Title		string	`db:"title,index"`
- *	  AuthorId	int		`db:"author_id,index" fk:"user"`
+ *	  Id		int 	`db:"id int[pk]"`
+ *	  Title		string	`db:"title varchar(256)[index]"`
+ *	  AuthorId	int		`db:"author_id int[index]"`
  * }
  */
-func parseTag(tag reflect.TagStruct, fd *FieldDescriptor) {
-	db := tag.Get("db")
-	space := regexp.MustCompile("\\S+")
-	opts := helper.Explode(space.ReplaceAll(db, ""), ",")
-	fd.FieldName = opts[0]
-	fd.Nullable = helper.InArray(opts, "nil")
-	fd.PK = helper.InArray(opts, "pk")
-	fd.Index = helper.InArray(opts, "index")
+func parseTag(tag reflect.StructTag, fd *FieldDescriptor) {
+	parser := new(TagParser)
+	dbr, _ := parser.ParseDB(tag.Get("db"))
+	fd.FieldName = dbr.FieldName
+	fd.FieldType = dbr.FieldType
+	fd.PK = dbr.IsPk
+	fd.Index = dbr.IsIndex
+	fd.Nullable = dbr.Nullable
 	fd.Uniques = []string{}
-	if helper.InArray(opts, "uk") {
+	fd.FK = []string{}
+	if dbr.IsUk {
 		fd.Uniques = append(fd.Uniques, fd.FieldName)
 	}
 	if uk, ok := tag.Lookup("uk"); ok {
-		space := regexp.MustCompile("\\S+")
-		uks := helper.Explode(space.ReplaceAll(db, ""), ",")
-		fd.Uniques = helper.Merge(fd.Uniques, uks)
+		fd.Uniques = helper.MergeStrArray(fd.Uniques, parser.ParseUk(uk))
 	}
 	if fk, ok := tag.Lookup("fk"); ok {
-		space := regexp.MustCompile("\\S+")
-		fd.FK = helper.Explode(space.ReplaceAll(db, ""), ",")
+		fd.FK = parser.ParseFk(fk)
 	}
 }
 
-func (mm *ModelMapper) ValueReceivers() []interface{} {
-	receivers := make([]interface{}, len(mm.fds))
-	for i, fd := range mm.fds {
-		receivers[i] = &fd.value
+func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
+
+	value := reflect.ValueOf(mm.model).Elem()
+	pointers := make([]interface{}, len(columns))
+	for i, fieldName := range columns {
+		name := mm.fnFds[fieldName].Name
+		pointers[i] = value.FieldByName(name).Addr().Interface()
 	}
 
-	return receivers
-	// value := reflect.ValueOf(mm.model).Elem()
-	// length := value.NumField()
-	// pointers := make([]interface{}, length)
-	// for i := 0; i < length; i++ {
-	// 	pointers[i] = value.Field(i).Addr().Interface()
-	// }
-
-	// return pointers
+	return pointers
 }
 
 func (mm *ModelMapper) IndexFields() []string {
@@ -122,10 +119,10 @@ func (mm *ModelMapper) UK() [][]string {
 	result := [][]string{}
 	temp := make(map[string][]string)
 	for _, fd := range mm.fds {
-		if len(fd.UK) == 0 {
+		if len(fd.Uniques) == 0 {
 			continue
 		}
-		for _, uk := range fd.UK {
+		for _, uk := range fd.Uniques {
 			if _, ok := temp[uk]; !ok {
 				temp[uk] = []string{fd.FieldName}
 				continue
@@ -143,15 +140,15 @@ func (mm *ModelMapper) UK() [][]string {
 func (mm *ModelMapper) FK() map[string][]string {
 	result := make(map[string][]string)
 	for _, fd := range mm.fds {
-		if len(fd.UK) == 0 {
+		if len(fd.FK) == 0 {
 			continue
 		}
-		for _, uk := range fd.UK {
-			if _, ok := result[uk]; !ok {
-				result[uk] = []string{fd.FieldName}
+		for _, fk := range fd.FK {
+			if _, ok := result[fk]; !ok {
+				result[fk] = []string{fd.FieldName}
 				continue
 			}
-			result[uk] = append(result[uk], fd.FieldName)
+			result[fk] = append(result[fk], fd.FieldName)
 		}
 	}
 
@@ -162,16 +159,10 @@ func (mm *ModelMapper) TableName() string {
 	return mm.model.(TableNamer).TableName()
 }
 
-func (mm *ModelMapper) Describe() []FieldDescriptor {
+func (mm *ModelMapper) Describe() map[string]*FieldDescriptor {
 	return mm.fds
 }
 
 func (mm *ModelMapper) Model() interface{} {
-	values := reflect.ValueOf(mm.model).Elem()
-	for i := 0; i < values.NumField(); i++ {
-		v := values.Field(i)
-		v.Set(reflect.ValueOf(mm.fds[i].value))
-	}
 	return mm.model
-	// return reflect.ValueOf(mm.model).Elem().Interface()
 }

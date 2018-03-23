@@ -1,9 +1,7 @@
 package model
 
 import (
-	// "time"
 	"database/sql"
-	"fmt"
 	. "github.com/yang-zzhong/go-querybuilder"
 	"reflect"
 )
@@ -18,24 +16,35 @@ type Repo struct {
 var conn *sql.DB
 
 func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
-	repo := &Repo{m, conn, NewMM(m), NewBuilder(p)}
+	repo := &Repo{m, conn, NewModelMapper(m), NewBuilder(p)}
 	repo.From(repo.model.(TableNamer).TableName())
 
 	return repo
 }
 
-func (repo *Repo) Fetch() []interface{} {
-	rows, err := repo.conn.Query(repo.ForQuery(), repo.Params()...)
-	if err != nil {
-		fmt.Println(err)
+func (repo *Repo) Fetch() (result []interface{}, err error) {
+	result = []interface{}{}
+	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
+	if qerr != nil {
+		err = qerr
+		return
 	}
-	result := []interface{}{}
 	for rows.Next() {
-		err = rows.Scan(repo.mm.ValueReceivers()...)
-		result = append(result, repo.mm.Model())
+		columns, cerr := rows.Columns()
+		if cerr != nil {
+			err = cerr
+			return
+		}
+		rerr := rows.Scan(repo.mm.ValueReceivers(columns)...)
+		if rerr != nil {
+			err = rerr
+			return
+		}
+		model := reflect.ValueOf(repo.mm.Model()).Elem().Interface()
+		result = append(result, model)
 	}
 
-	return result
+	return
 }
 
 func (repo *Repo) Update(data map[string]string) {
@@ -46,6 +55,6 @@ func (repo *Repo) Remove() {
 	repo.conn.Exec(repo.ForRemove(), repo.Params()...)
 }
 
-func (repo *Repo) Create(m interface{}) {
+func (repo *Repo) Create() {
 
 }
