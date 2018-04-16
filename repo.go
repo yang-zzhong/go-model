@@ -56,7 +56,12 @@ func (repo *Repo) Fetch() (result []interface{}, err error) {
 	return
 }
 
-func (repo *Repo) Update(data map[string]interface{}) {
+func (repo *Repo) Update(model interface{}) {
+	field := repo.model.(TableNamer).IdKey()
+	priValue, _ := repo.mm.FindFieldValue(model, field)
+	repo.Where(repo.model.(TableNamer).IdKey(), priValue)
+
+	data, _ := repo.mm.Extract(model)
 	repo.conn.Exec(repo.ForUpdate(data), repo.Params()...)
 }
 
@@ -65,5 +70,7 @@ func (repo *Repo) Remove() {
 }
 
 func (repo *Repo) Create(model interface{}) {
-
+	row, _ := repo.mm.Extract(model)
+	data := []map[string]interface{}{row}
+	repo.conn.Exec(repo.ForInsert(data), repo.Params()...)
 }

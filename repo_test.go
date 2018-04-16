@@ -31,7 +31,6 @@ func (u *User) IdKey() string {
 func init() {
 	var err error
 	con, err = sql.Open("mysql", "root:young159357789@/test_go?parseTime=true")
-	// con, err = sql.Open("mysql", "root:young159357789@/test_go")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -40,6 +39,10 @@ func init() {
 func TestRepo(t *T) {
 	repo := NewRepo(&User{}, con, &MysqlModifier{})
 	repo.Where("name", LIKE, "yang%")
+	user := &User{"3", "y-z", 25, 2, sql.NullString{"", true}, time.Now()}
+	repo.Create(user)
+	user.Id = "4"
+	repo.Update(user)
 
 	fmt.Println(repo.Fetch())
 }

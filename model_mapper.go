@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	helper "github.com/yang-zzhong/go-helpers"
 	"reflect"
 	"strings"
@@ -83,6 +84,28 @@ func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
 	return pointers
 }
 
+func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}, err error) {
+	result = make(map[string]interface{})
+	mValue, err := mm.modelValue(model)
+	for _, item := range mm.fds {
+		result[item.FieldName] = mValue.(reflect.Value).FieldByName(item.Name).Interface()
+	}
+
+	return
+}
+
+func (mm *ModelMapper) FindFieldValue(model interface{}, field string) (result interface{}, err error) {
+	mValue, perr := mm.modelValue(model)
+	if perr != nil {
+		err = perr
+		return
+	}
+	if desc, ok := mm.fnFds[field]; ok {
+		result = mValue.(reflect.Value).FieldByName(desc.Name).Interface()
+	}
+	return
+}
+
 func (mm *ModelMapper) TableName() string {
 	return mm.model.(TableNamer).TableName()
 }
@@ -93,4 +116,20 @@ func (mm *ModelMapper) Describe() map[string]*FieldDescriptor {
 
 func (mm *ModelMapper) Model() interface{} {
 	return mm.model
+}
+
+func (mm *ModelMapper) modelValue(model interface{}) (result interface{}, err error) {
+	mType := reflect.TypeOf(model)
+	mmType := reflect.TypeOf(mm.model)
+	if mType.Name() != mmType.Name() {
+		err = errors.New("model type error")
+		return
+	}
+	mValue := reflect.ValueOf(model)
+	for mValue.Kind() == reflect.Ptr {
+		mValue = mValue.Elem()
+	}
+
+	result = mValue
+	return
 }
