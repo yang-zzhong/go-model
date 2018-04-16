@@ -6,18 +6,18 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	. "github.com/yang-zzhong/go-querybuilder"
 	. "testing"
-	"time"
+	// "time"
 )
 
 var con *sql.DB
 
 type User struct {
-	Id        string         `db:"id uuid[pk]"`
-	Name      string         `db:"name varchar(32)"`
-	Age       int            `db:"age int"`
-	Level     int            `db:"level int"`
+	Id        StoreString    `db:"id uuid[pk]"`
+	Name      StoreString    `db:"name varchar(32)"`
+	Age       StoreInt       `db:"age int"`
+	Level     StoreInt       `db:"level int"`
 	Optional  sql.NullString `db:"optional varchar(256)[nil]"`
-	CreatedAt time.Time      `db:"created_at datetime"`
+	CreatedAt StoreDatetime  `db:"created_at datetime"`
 }
 
 func (u *User) TableName() string {
@@ -26,7 +26,8 @@ func (u *User) TableName() string {
 
 func init() {
 	var err error
-	con, err = sql.Open("mysql", "root:young159357789@/test_go?parseTime=true")
+	// con, err = sql.Open("mysql", "root:young159357789@/test_go?parseTime=true")
+	con, err = sql.Open("mysql", "root:young159357789@/test_go")
 	if err != nil {
 		fmt.Println(err)
 	}

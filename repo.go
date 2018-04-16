@@ -22,6 +22,15 @@ func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	return repo
 }
 
+func (repo *Repo) Find(val interface{}) interface{} {
+	repo.Where(repo.model.IdKey(), val.(string)).Limit(1)
+	result, _ := repo.Fetch()
+	if len(result) > 0 {
+		return result[0]
+	}
+	return
+}
+
 func (repo *Repo) Fetch() (result []interface{}, err error) {
 	result = []interface{}{}
 	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
@@ -55,6 +64,6 @@ func (repo *Repo) Remove() {
 	repo.conn.Exec(repo.ForRemove(), repo.Params()...)
 }
 
-func (repo *Repo) Create() {
+func (repo *Repo) Create(model interface{}) {
 
 }
