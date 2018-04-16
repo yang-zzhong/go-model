@@ -17,6 +17,7 @@ type FieldDescriptor struct {
 	FieldName string
 	FieldType string
 	Nullable  bool
+	UK        bool
 	PK        bool
 	Index     bool
 }
@@ -63,9 +64,9 @@ func parseTag(tag reflect.StructTag, fd *FieldDescriptor) {
 	fd.FieldType = dbArray[1]
 	if len(dbArray) == 3 {
 		opt = strings.Split(dbArray[2], ",")
-		fd.IsPk = helper.InStrArray(opt, "pk")
-		fd.IsUk = helper.InStrArray(opt, "uk")
-		fd.IsIndex = helper.InStrArray(opt, "index")
+		fd.Pk = helper.InStrArray(opt, "pk")
+		fd.Uk = helper.InStrArray(opt, "uk")
+		fd.Index = helper.InStrArray(opt, "index")
 		fd.Nullable = helper.InStrArray(opt, "nil")
 	}
 }
