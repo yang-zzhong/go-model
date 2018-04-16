@@ -3,6 +3,7 @@ package model
 import (
 	helper "github.com/yang-zzhong/go-helpers"
 	"reflect"
+	"strings"
 )
 
 type ModelMapper struct {
@@ -63,9 +64,9 @@ func parseTag(tag reflect.StructTag, fd *FieldDescriptor) {
 	fd.FieldName = dbArray[0]
 	fd.FieldType = dbArray[1]
 	if len(dbArray) == 3 {
-		opt = strings.Split(dbArray[2], ",")
-		fd.Pk = helper.InStrArray(opt, "pk")
-		fd.Uk = helper.InStrArray(opt, "uk")
+		opt := strings.Split(dbArray[2], ",")
+		fd.PK = helper.InStrArray(opt, "pk")
+		fd.UK = helper.InStrArray(opt, "uk")
 		fd.Index = helper.InStrArray(opt, "index")
 		fd.Nullable = helper.InStrArray(opt, "nil")
 	}
