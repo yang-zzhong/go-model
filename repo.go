@@ -135,7 +135,10 @@ func (repo *Repo) CreateTable() error {
 	sql += "(\n\t" + strings.Join(rowsInfo, ",\n\t") + "\n)"
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tx, _ := repo.conn.BeginTx(ctx, nil)
+	tx, err := repo.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
 	_, err := tx.Exec(sql)
 	if err != nil {
 		tx.Rollback()
