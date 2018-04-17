@@ -103,8 +103,9 @@ func (repo *Repo) Create(model interface{}) error {
 	}
 	row, _ := repo.mm.Extract(model)
 	data := []map[string]interface{}{row}
-	repo.conn.Exec(repo.ForInsert(data), repo.Params()...)
-	return nil
+	_, err := repo.conn.Exec(repo.ForInsert(data), repo.Params()...)
+
+	return err
 }
 
 func (repo *Repo) Count() int {
