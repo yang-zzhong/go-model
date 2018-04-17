@@ -10,8 +10,8 @@ import (
 type ModelMapper struct {
 	Fresh bool
 	model interface{}
-	fds   map[string]*FieldDescriptor
-	fnFds map[string]*FieldDescriptor
+	Fds   map[string]*FieldDescriptor
+	FnFds map[string]*FieldDescriptor
 }
 
 type FieldDescriptor struct {
@@ -19,9 +19,9 @@ type FieldDescriptor struct {
 	FieldName string
 	FieldType string
 	Nullable  bool
-	UK        bool
-	PK        bool
-	Index     bool
+	IsUk      bool
+	IsPk      bool
+	IsIndex   bool
 }
 
 func NewModelMapper(model interface{}) *ModelMapper {
@@ -29,15 +29,15 @@ func NewModelMapper(model interface{}) *ModelMapper {
 	mm.model = model
 	types := reflect.TypeOf(mm.model).Elem()
 	length := types.NumField()
-	mm.fds = make(map[string]*FieldDescriptor)
-	mm.fnFds = make(map[string]*FieldDescriptor)
+	mm.Fds = make(map[string]*FieldDescriptor)
+	mm.FnFds = make(map[string]*FieldDescriptor)
 	for i := 0; i < length; i++ {
 		field := types.Field(i)
 		fd := new(FieldDescriptor)
 		fd.Name = field.Name
 		parseTag(field.Tag, fd)
-		mm.fds[fd.Name] = fd
-		mm.fnFds[fd.FieldName] = fd
+		mm.Fds[fd.Name] = fd
+		mm.FnFds[fd.FieldName] = fd
 	}
 
 	return mm
@@ -66,9 +66,9 @@ func parseTag(tag reflect.StructTag, fd *FieldDescriptor) {
 	fd.FieldType = dbArray[1]
 	if len(dbArray) == 3 {
 		opt := strings.Split(dbArray[2], ",")
-		fd.PK = helper.InStrArray(opt, "pk")
-		fd.UK = helper.InStrArray(opt, "uk")
-		fd.Index = helper.InStrArray(opt, "index")
+		fd.IsPk = helper.InStrArray(opt, "pk")
+		fd.IsUk = helper.InStrArray(opt, "uk")
+		fd.IsIndex = helper.InStrArray(opt, "index")
 		fd.Nullable = helper.InStrArray(opt, "nil")
 	}
 }
@@ -77,7 +77,7 @@ func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
 	value := reflect.ValueOf(mm.model).Elem()
 	pointers := make([]interface{}, len(columns))
 	for i, fieldName := range columns {
-		name := mm.fnFds[fieldName].Name
+		name := mm.FnFds[fieldName].Name
 		pointers[i] = value.FieldByName(name).Addr().Interface()
 	}
 
@@ -87,7 +87,7 @@ func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
 func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}, err error) {
 	result = make(map[string]interface{})
 	mValue, err := mm.modelValue(model)
-	for _, item := range mm.fds {
+	for _, item := range mm.Fds {
 		result[item.FieldName] = mValue.(reflect.Value).FieldByName(item.Name).Interface()
 	}
 
@@ -100,18 +100,18 @@ func (mm *ModelMapper) FindFieldValue(model interface{}, field string) (result i
 		err = perr
 		return
 	}
-	if desc, ok := mm.fnFds[field]; ok {
+	if desc, ok := mm.FnFds[field]; ok {
 		result = mValue.(reflect.Value).FieldByName(desc.Name).Interface()
 	}
 	return
 }
 
 func (mm *ModelMapper) TableName() string {
-	return mm.model.(TableNamer).TableName()
+	return mm.model.(Model).TableName()
 }
 
 func (mm *ModelMapper) Describe() map[string]*FieldDescriptor {
-	return mm.fds
+	return mm.Fds
 }
 
 func (mm *ModelMapper) Model() interface{} {

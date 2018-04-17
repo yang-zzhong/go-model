@@ -12,8 +12,8 @@ import (
 var con *sql.DB
 
 type User struct {
-	Id        string         `db:"id uuid pk"`
-	Name      string         `db:"name varchar(32)"`
+	Id        string         `db:"id varchar(128) pk"`
+	Name      string         `db:"name varchar(32) uk"`
 	Age       int            `db:"age int"`
 	Level     int            `db:"level int"`
 	Optional  sql.NullString `db:"optional varchar(256) nil"`
@@ -38,16 +38,17 @@ func init() {
 
 func TestRepo(t *T) {
 	repo := NewRepo(&User{}, con, &MysqlModifier{})
+	fmt.Println(repo.CreateTable())
 	// repo.Where("name", LIKE, "yang%")
 	// repo.Create(user)
 	// user.Id = "y-zhong"
 	// repo.Update(user)
-	fmt.Println(repo.Find("3"))
-	repo = NewRepo(&User{}, con, &MysqlModifier{})
-	user := &User{"3", "y-zhong", 25, 2, sql.NullString{"", true}, time.Now()}
-	repo.Update(user)
+	// fmt.Println(repo.Find("3"))
+	// repo = NewRepo(&User{}, con, &MysqlModifier{})
+	// user := &User{"3", "y-zhong", 25, 2, sql.NullString{"", true}, time.Now()}
+	// repo.Update(user)
 
-	fmt.Println(repo.Find("3"))
+	// fmt.Println(repo.Find("3"))
 
 	// fmt.Println(repo.Fetch())
 }
