@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	helpers "github.com/yang-zzhong/go-helpers"
 	. "github.com/yang-zzhong/go-querybuilder"
 	. "testing"
 	"time"
@@ -24,8 +25,12 @@ func (u *User) TableName() string {
 	return "users"
 }
 
-func (u *User) IdKey() string {
+func (u *User) PK() string {
 	return "id"
+}
+
+func (u *User) NewId() interface{} {
+	return helpers.RandString(32)
 }
 
 func init() {
@@ -38,7 +43,7 @@ func init() {
 
 func TestRepo(t *T) {
 	repo := NewRepo(&User{}, con, &MysqlModifier{})
-	fmt.Println(repo.CreateTable())
+	// fmt.Println(repo.CreateTable())
 	// repo.Where("name", LIKE, "yang%")
 	// repo.Create(user)
 	// user.Id = "y-zhong"
@@ -48,7 +53,7 @@ func TestRepo(t *T) {
 	// user := &User{"3", "y-zhong", 25, 2, sql.NullString{"", true}, time.Now()}
 	// repo.Update(user)
 
-	// fmt.Println(repo.Find("3"))
+	fmt.Println(repo.Find("3"))
 
-	// fmt.Println(repo.Fetch())
+	fmt.Println(repo.Fetch())
 }

@@ -1,6 +1,7 @@
 package model
 
 type Model interface {
-	TableName() string
-	IdKey() string
+	TableName() string  // table name in db
+	PK() string         // primary key
+	NewId() interface{} // NewId
 }

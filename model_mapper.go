@@ -84,6 +84,10 @@ func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
 	return pointers
 }
 
+func (mm *ModelMapper) Model() interface{} {
+	return mm.model
+}
+
 func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}, err error) {
 	result = make(map[string]interface{})
 	mValue, err := mm.modelValue(model)
@@ -94,7 +98,7 @@ func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}
 	return
 }
 
-func (mm *ModelMapper) FindFieldValue(model interface{}, field string) (result interface{}, err error) {
+func (mm *ModelMapper) DbFieldValue(model interface{}, field string) (result interface{}, err error) {
 	mValue, perr := mm.modelValue(model)
 	if perr != nil {
 		err = perr
@@ -106,16 +110,16 @@ func (mm *ModelMapper) FindFieldValue(model interface{}, field string) (result i
 	return
 }
 
-func (mm *ModelMapper) TableName() string {
-	return mm.model.(Model).TableName()
-}
-
-func (mm *ModelMapper) Describe() map[string]*FieldDescriptor {
-	return mm.Fds
-}
-
-func (mm *ModelMapper) Model() interface{} {
-	return mm.model
+func (mm *ModelMapper) FieldValue(model interface{}, field string) (result interface{}, err error) {
+	mValue, perr := mm.modelValue(model)
+	if perr != nil {
+		err = perr
+		return
+	}
+	if desc, ok := mm.Fds[field]; ok {
+		result = mValue.(reflect.Value).FieldByName(desc.Name).Interface()
+	}
+	return
 }
 
 func (mm *ModelMapper) modelValue(model interface{}) (result interface{}, err error) {

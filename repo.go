@@ -34,7 +34,7 @@ func (repo *Repo) One() interface{} {
 }
 
 func (repo *Repo) Find(val interface{}) interface{} {
-	repo.Where(repo.model.(Model).IdKey(), val.(string)).Limit(1)
+	repo.Where(repo.model.(Model).PK(), val.(string)).Limit(1)
 	result, _ := repo.Fetch()
 	if len(result) > 0 {
 		return result[0]
@@ -45,6 +45,7 @@ func (repo *Repo) Find(val interface{}) interface{} {
 func (repo *Repo) Fetch() (result []interface{}, err error) {
 	result = []interface{}{}
 	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
+	repo.Builder.Init()
 	if qerr != nil {
 		err = qerr
 		return
@@ -69,27 +70,31 @@ func (repo *Repo) Fetch() (result []interface{}, err error) {
 
 func (repo *Repo) UpdateRaw(data map[string]interface{}) {
 	repo.conn.Exec(repo.ForUpdate(data), repo.Params()...)
+	repo.Builder.Init()
 }
 
 func (repo *Repo) RemoveRaw() {
 	repo.conn.Exec(repo.ForRemove(), repo.Params()...)
+	repo.Builder.Init()
 }
 
 func (repo *Repo) Update(model interface{}) error {
 	if err := repo.Validate(model); err != nil {
 		return err
 	}
-	field := repo.model.(Model).IdKey()
-	priValue, _ := repo.mm.FindFieldValue(model, field)
+	field := repo.model.(Model).PK()
+	priValue, _ := repo.mm.DbFieldValue(model, field)
 	repo.Where(field, priValue)
 	data, _ := repo.mm.Extract(model)
 	repo.conn.Exec(repo.ForUpdate(data), repo.Params()...)
+	repo.Builder.Init()
 
 	return nil
 }
 
 func (repo *Repo) Remove() {
 	repo.conn.Exec(repo.ForRemove(), repo.Params()...)
+	repo.Builder.Init()
 }
 
 func (repo *Repo) Create(model interface{}) error {
@@ -104,6 +109,7 @@ func (repo *Repo) Create(model interface{}) error {
 
 func (repo *Repo) Count() int {
 	rows, _ := repo.conn.Query(repo.ForCount(), repo.Params()...)
+	repo.Builder.Init()
 	result := 0
 	for rows.Next() {
 		rows.Scan(&result)
@@ -139,7 +145,7 @@ func (repo *Repo) CreateTable() error {
 	if err != nil {
 		return err
 	}
-	_, err := tx.Exec(sql)
+	_, err = tx.Exec(sql)
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -167,11 +173,11 @@ func (repo *Repo) Validate(model interface{}) error {
 			return errors.New(item.Name + " Not Allow Null")
 		}
 		if item.IsPk || item.IsUk {
-			cRepo := &(*repo)
-			idKey := repo.model.(Model).IdKey()
-			idValue, _ := repo.mm.FindFieldValue(model, idKey)
-			cRepo.Where(idKey, NEQ, idValue).Where(item.FieldName, value)
-			if cRepo.Count() > 0 {
+			cRepo := *repo
+			pk := repo.model.(Model).PK()
+			id, _ := repo.mm.DbFieldValue(model, pk)
+			(&cRepo).Where(pk, NEQ, id).Where(item.FieldName, value)
+			if (&cRepo).Count() > 0 {
 				return errors.New(item.Name + " Exists In DB")
 			}
 		}
