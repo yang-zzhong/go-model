@@ -1,6 +1,6 @@
 package model
 
-type TableNamer interface {
+type Model interface {
 	TableName() string
 	IdKey() string
 }

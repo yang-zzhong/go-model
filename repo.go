@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"fmt"
 	. "github.com/yang-zzhong/go-querybuilder"
 	"reflect"
 )
@@ -20,6 +21,14 @@ func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	repo.From(repo.model.(TableNamer).TableName())
 
 	return repo
+}
+
+func (repo *Repo) One() interface{} {
+	result := repo.Fetch()
+	if len(result) > 0 {
+		return result[0]
+	}
+	return nil
 }
 
 func (repo *Repo) Find(val interface{}) interface{} {
@@ -60,7 +69,6 @@ func (repo *Repo) Update(model interface{}) {
 	field := repo.model.(TableNamer).IdKey()
 	priValue, _ := repo.mm.FindFieldValue(model, field)
 	repo.Where(repo.model.(TableNamer).IdKey(), priValue)
-
 	data, _ := repo.mm.Extract(model)
 	repo.conn.Exec(repo.ForUpdate(data), repo.Params()...)
 }

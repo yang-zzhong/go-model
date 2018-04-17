@@ -38,11 +38,16 @@ func init() {
 
 func TestRepo(t *T) {
 	repo := NewRepo(&User{}, con, &MysqlModifier{})
-	repo.Where("name", LIKE, "yang%")
-	user := &User{"3", "y-z", 25, 2, sql.NullString{"", true}, time.Now()}
-	repo.Create(user)
-	user.Id = "4"
+	// repo.Where("name", LIKE, "yang%")
+	// repo.Create(user)
+	// user.Id = "y-zhong"
+	// repo.Update(user)
+	fmt.Println(repo.Find("3"))
+	repo = NewRepo(&User{}, con, &MysqlModifier{})
+	user := &User{"3", "y-zhong", 25, 2, sql.NullString{"", true}, time.Now()}
 	repo.Update(user)
 
-	fmt.Println(repo.Fetch())
+	fmt.Println(repo.Find("3"))
+
+	// fmt.Println(repo.Fetch())
 }
