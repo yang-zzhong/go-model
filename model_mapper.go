@@ -33,9 +33,13 @@ func NewModelMapper(model interface{}) *ModelMapper {
 	mm.FnFds = make(map[string]*FieldDescriptor)
 	for i := 0; i < length; i++ {
 		field := types.Field(i)
+		dbTag := field.Tag.Get("db")
+		if dbTag == "" {
+			continue
+		}
 		fd := new(FieldDescriptor)
 		fd.Name = field.Name
-		parseTag(field.Tag, fd)
+		parseTag(dbTag, fd)
 		mm.Fds[fd.Name] = fd
 		mm.FnFds[fd.FieldName] = fd
 	}
@@ -60,8 +64,8 @@ func NewModelMapper(model interface{}) *ModelMapper {
  *	  AuthorId	int		`db:"author_id int index"`
  * }
  */
-func parseTag(tag reflect.StructTag, fd *FieldDescriptor) {
-	dbArray := strings.Split(tag.Get("db"), " ")
+func parseTag(dbTag string, fd *FieldDescriptor) {
+	dbArray := strings.Split(dbTag, " ")
 	fd.FieldName = dbArray[0]
 	fd.FieldType = dbArray[1]
 	if len(dbArray) == 3 {
