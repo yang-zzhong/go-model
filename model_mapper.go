@@ -5,6 +5,7 @@ import (
 	helper "github.com/yang-zzhong/go-helpers"
 	"reflect"
 	"strings"
+	"time"
 )
 
 type ModelMapper struct {
@@ -96,7 +97,15 @@ func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}
 	result = make(map[string]interface{})
 	mValue, err := mm.modelValue(model)
 	for _, item := range mm.Fds {
-		result[item.FieldName] = mValue.(reflect.Value).FieldByName(item.Name).Interface()
+		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
+		switch value.(type) {
+		case time.Time:
+			if value.(time.Time).IsZero() {
+				result[item.FieldName] = nil
+				continue
+			}
+		}
+		result[item.FieldName] = value
 	}
 
 	return
