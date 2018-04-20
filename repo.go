@@ -37,6 +37,16 @@ func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	return repo
 }
 
+func (repo *Repo) OnCreate(oncreate onModify) {
+	repo.onCreate = oncreate
+	return repo
+}
+
+func (repo *Repo) OnUpdate(onupdate onModify) {
+	repo.onUpdate = onupdate
+	return repo
+}
+
 func (repo *Repo) One() interface{} {
 	result, _ := repo.Fetch()
 	if len(result) > 0 {
