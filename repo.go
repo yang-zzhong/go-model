@@ -112,7 +112,7 @@ func (repo *Repo) RemoveRaw() {
 }
 
 func (repo *Repo) Update(model interface{}) error {
-	repo.onUpdate(model)
+	repo.onUpdate(&model)
 	var err error
 	if err = repo.ValidateNullable(model); err != nil {
 		return err
@@ -143,7 +143,7 @@ func (repo *Repo) Remove() error {
 }
 
 func (repo *Repo) Create(model interface{}) error {
-	repo.onCreate(model)
+	repo.onCreate(&model)
 	var err error
 	if err = repo.ValidateNullable(model); err != nil {
 		return err
