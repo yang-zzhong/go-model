@@ -9,17 +9,29 @@ import (
 	"strings"
 )
 
+type onModify func(model interface{})
+type txCall func(tx *sql.Tx) error
+
 type Repo struct {
-	model interface{}
-	conn  *sql.DB
-	mm    *ModelMapper
+	model    interface{}
+	conn     *sql.DB
+	mm       *ModelMapper
+	onCreate onModify
+	onUpdate onModify
+	tx       *sql.Tx
 	*Builder
 }
 
 var conn *sql.DB
 
 func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
-	repo := &Repo{m, conn, NewModelMapper(m), NewBuilder(p)}
+	repo := new(Repo)
+	repo.model = m
+	repo.conn = conn
+	repo.mm = NewModelMapper(m)
+	repo.onCreate = func(model interface{}) {}
+	repo.onUpdate = func(model interface{}) {}
+	repo.Builder = NewBuilder(p)
 	repo.From(repo.model.(Model).TableName())
 
 	return repo
@@ -31,6 +43,11 @@ func (repo *Repo) One() interface{} {
 		return result[0]
 	}
 	return nil
+}
+
+func (repo *Repo) executed() {
+	repo.tx = nil
+	repo.Builder.Init()
 }
 
 func (repo *Repo) Find(val interface{}) interface{} {
@@ -45,7 +62,7 @@ func (repo *Repo) Find(val interface{}) interface{} {
 func (repo *Repo) Fetch() (result []interface{}, err error) {
 	result = []interface{}{}
 	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
-	repo.Builder.Init()
+	repo.executed()
 	if qerr != nil {
 		err = qerr
 		return
@@ -69,41 +86,66 @@ func (repo *Repo) Fetch() (result []interface{}, err error) {
 }
 
 func (repo *Repo) UpdateRaw(data map[string]interface{}) {
+	if repo.tx != nil {
+		repo.tx.Exec(repo.ForUpdate(data), repo.Params()...)
+	}
 	repo.conn.Exec(repo.ForUpdate(data), repo.Params()...)
-	repo.Builder.Init()
+	repo.executed()
 }
 
 func (repo *Repo) RemoveRaw() {
+	if repo.tx != nil {
+		repo.tx.Exec(repo.ForRemove(), repo.Params()...)
+	}
 	repo.conn.Exec(repo.ForRemove(), repo.Params()...)
-	repo.Builder.Init()
+	repo.executed()
 }
 
 func (repo *Repo) Update(model interface{}) error {
-	if err := repo.Validate(model); err != nil {
+	repo.onUpdate(model)
+	var err error
+	if err = repo.ValidateNullable(model); err != nil {
 		return err
 	}
 	field := repo.model.(Model).PK()
 	priValue, _ := repo.mm.DbFieldValue(model, field)
 	repo.Where(field, priValue)
 	data, _ := repo.mm.Extract(model)
-	repo.conn.Exec(repo.ForUpdate(data), repo.Params()...)
-	repo.Builder.Init()
+	if repo.tx != nil {
+		_, err = repo.tx.Exec(repo.ForUpdate(data), repo.Params()...)
+	} else {
+		_, err = repo.conn.Exec(repo.ForUpdate(data), repo.Params()...)
+	}
+	repo.executed()
 
 	return nil
 }
 
-func (repo *Repo) Remove() {
-	repo.conn.Exec(repo.ForRemove(), repo.Params()...)
-	repo.Builder.Init()
+func (repo *Repo) Remove() error {
+	var err error
+	if repo.tx != nil {
+		_, err = repo.tx.Exec(repo.ForRemove(), repo.Params()...)
+	} else {
+		_, err = repo.conn.Exec(repo.ForRemove(), repo.Params()...)
+	}
+	repo.executed()
+	return err
 }
 
 func (repo *Repo) Create(model interface{}) error {
-	if err := repo.Validate(model); err != nil {
+	repo.onCreate(model)
+	var err error
+	if err = repo.ValidateNullable(model); err != nil {
 		return err
 	}
 	row, _ := repo.mm.Extract(model)
 	data := []map[string]interface{}{row}
-	_, err := repo.conn.Exec(repo.ForInsert(data), repo.Params()...)
+	if repo.tx != nil {
+		_, err = repo.tx.Exec(repo.ForInsert(data), repo.Params()...)
+	} else {
+		_, err = repo.conn.Exec(repo.ForInsert(data), repo.Params()...)
+	}
+	repo.executed()
 
 	return err
 }
@@ -120,7 +162,7 @@ func (repo *Repo) Count() int {
 }
 
 func (repo *Repo) CreateTable() error {
-	sql := "CREATE TABLE " + repo.QuotedTableName()
+	sqlang := "CREATE TABLE " + repo.QuotedTableName()
 	rowsInfo := []string{}
 	indexes := []string{}
 	for _, item := range repo.mm.Fds {
@@ -139,48 +181,47 @@ func (repo *Repo) CreateTable() error {
 		}
 		rowsInfo = append(rowsInfo, strings.Join(rowInfo, " "))
 	}
-	sql += "(\n\t" + strings.Join(rowsInfo, ",\n\t") + "\n)"
+	sqlang += "(\n\t" + strings.Join(rowsInfo, ",\n\t") + "\n)"
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	tx, err := repo.conn.BeginTx(ctx, nil)
+	return repo.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(sqlang)
+		if err != nil {
+			return err
+		}
+		for _, index := range indexes {
+			_, err := tx.Exec(index)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}, ctx, nil)
+}
+
+func (repo *Repo) Tx(txcall txCall, ctx context.Context, opts *sql.TxOptions) error {
+	tx, err := repo.conn.BeginTx(ctx, opts)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(sql)
-	if err != nil {
+	if err := txcall(tx); err != nil {
 		tx.Rollback()
 		return err
 	}
-	for _, index := range indexes {
-		_, err := tx.Exec(index)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
+
 	return tx.Commit()
 }
 
-func (repo *Repo) BeginTx(ctx context.Context, opts *sql.TxOptions) (tx *sql.Tx, err error) {
-	tx, err = repo.conn.BeginTx(ctx, opts)
-	return
+func (repo *Repo) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	return repo.conn.BeginTx(ctx, opts)
 }
 
-func (repo *Repo) Validate(model interface{}) error {
+func (repo *Repo) ValidateNullable(model interface{}) error {
 	mValue, _ := repo.mm.modelValue(model)
 	for _, item := range repo.mm.Fds {
 		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
-		if item.Nullable && isNull(value) {
-			return errors.New(item.Name + " Not Allow Null")
-		}
-		if item.IsPk || item.IsUk {
-			cRepo := *repo
-			pk := repo.model.(Model).PK()
-			id, _ := repo.mm.DbFieldValue(model, pk)
-			(&cRepo).Where(pk, NEQ, id).Where(item.FieldName, value)
-			if (&cRepo).Count() > 0 {
-				return errors.New(item.Name + " Exists In DB")
-			}
+		if !item.Nullable && isNull(value) {
+			return errors.New(item.Name + " not nullable")
 		}
 	}
 
