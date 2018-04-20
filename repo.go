@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
-	"log"
 	"reflect"
 	"strings"
 )
