@@ -37,12 +37,12 @@ func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	return repo
 }
 
-func (repo *Repo) OnCreate(oncreate onModify) {
+func (repo *Repo) OnCreate(oncreate onModify) *Repo {
 	repo.onCreate = oncreate
 	return repo
 }
 
-func (repo *Repo) OnUpdate(onupdate onModify) {
+func (repo *Repo) OnUpdate(onupdate onModify) *Repo {
 	repo.onUpdate = onupdate
 	return repo
 }
