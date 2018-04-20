@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
+	"log"
 	"reflect"
 	"strings"
 )
@@ -151,12 +152,15 @@ func (repo *Repo) Create(model interface{}) error {
 }
 
 func (repo *Repo) Count() int {
-	rows, _ := repo.conn.Query(repo.ForCount(), repo.Params()...)
+	rows, err := repo.conn.Query(repo.ForCount(), repo.Params()...)
+	if err != nil {
+		panic(err)
+	}
 	repo.Builder.Init()
-	result := 0
+	var result int
 	for rows.Next() {
 		rows.Scan(&result)
-		return result
+		break
 	}
 	return result
 }
