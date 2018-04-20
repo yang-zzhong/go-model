@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
+	"log"
 	"reflect"
 	"strings"
 )
@@ -173,7 +174,8 @@ func (repo *Repo) Validate(model interface{}) error {
 	mValue, _ := repo.mm.modelValue(model)
 	for _, item := range repo.mm.Fds {
 		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
-		if item.Nullable && isNull(value) {
+		log.Println(item)
+		if !item.Nullable && isNull(value) {
 			return errors.New(item.Name + " Not Allow Null")
 		}
 		if item.IsPk || item.IsUk {
