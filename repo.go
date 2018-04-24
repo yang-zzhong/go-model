@@ -37,6 +37,11 @@ func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	return repo
 }
 
+func (repo *Repo) WithTx(tx *sql.Tx) *Repo {
+	repo.tx = tx
+	return repo
+}
+
 func (repo *Repo) OnCreate(oncreate onModify) *Repo {
 	repo.onCreate = oncreate
 	return repo
@@ -44,6 +49,16 @@ func (repo *Repo) OnCreate(oncreate onModify) *Repo {
 
 func (repo *Repo) OnUpdate(onupdate onModify) *Repo {
 	repo.onUpdate = onupdate
+	return repo
+}
+
+func (repo *Repo) CallOnUpdate(model interface{}) *Repo {
+	repo.onUpdate(model)
+	return repo
+}
+
+func (repo *Repo) CallOnCreate(model interface{}) *Repo {
+	repo.onCreate(model)
 	return repo
 }
 
