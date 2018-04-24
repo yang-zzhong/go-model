@@ -96,6 +96,9 @@ func (mm *ModelMapper) Model() interface{} {
 func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}, err error) {
 	result = make(map[string]interface{})
 	mValue, err := mm.modelValue(model)
+	if err != nil {
+		return
+	}
 	for _, item := range mm.Fds {
 		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
 		switch value.(type) {
