@@ -9,7 +9,6 @@ import (
 )
 
 type ModelMapper struct {
-	Fresh bool
 	model interface{}
 	Fds   map[string]*FieldDescriptor
 	FnFds map[string]*FieldDescriptor
@@ -100,6 +99,10 @@ func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}
 		return
 	}
 	for _, item := range mm.Fds {
+		if converter, ok := model.(ValueConverter); ok {
+			result[item.FieldName] = converter.DBValue(item.Name)
+			continue
+		}
 		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
 		switch value.(type) {
 		case time.Time:

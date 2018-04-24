@@ -190,9 +190,28 @@ func (repo *Repo) Count() int {
 }
 
 func (repo *Repo) CreateTable() error {
-	sqlang := "CREATE TABLE " + repo.QuotedTableName()
+	sqlang, indexes := repo.forCreateTable()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return repo.Tx(func(tx *sql.Tx) error {
+		_, err := tx.Exec(sqlang)
+		if err != nil {
+			return err
+		}
+		for _, index := range indexes {
+			_, err := tx.Exec(index)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}, ctx, nil)
+}
+
+func (repo *Repo) forCreateTable() (sqlang string, indexes []string) {
+	sqlang = "CREATE TABLE " + repo.QuotedTableName()
+	indexes = []string{}
 	rowsInfo := []string{}
-	indexes := []string{}
 	for _, item := range repo.mm.Fds {
 		rowInfo := []string{item.FieldName, item.FieldType}
 		if item.IsPk {
@@ -210,21 +229,7 @@ func (repo *Repo) CreateTable() error {
 		rowsInfo = append(rowsInfo, strings.Join(rowInfo, " "))
 	}
 	sqlang += "(\n\t" + strings.Join(rowsInfo, ",\n\t") + "\n)"
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return repo.Tx(func(tx *sql.Tx) error {
-		_, err := tx.Exec(sqlang)
-		if err != nil {
-			return err
-		}
-		for _, index := range indexes {
-			_, err := tx.Exec(index)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}, ctx, nil)
+	return
 }
 
 func (repo *Repo) Tx(txcall txCall, ctx context.Context, opts *sql.TxOptions) error {
