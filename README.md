@@ -10,6 +10,7 @@ import (
     "database/sql"
 )
 
+// define a model
 type User struct {
     Id          string      `db:"id char(36) pk"`
     Account     string      `db:"account varchar(36) uk"`
@@ -18,6 +19,15 @@ type User struct {
     Birthday    time.Time   `db:"birthday datetime"`
 }
 
+func (user *User) PK() string {
+    return "id"
+}
+
+func (user *User) TableName() string {
+    return "user"
+}
+
+// 获取db
 func driver() *sql.DB {
     drv, err := sql.Open("mysql", "mysql_user:password@/db?parseTime=true")
     if err != nil {
@@ -27,19 +37,16 @@ func driver() *sql.DB {
     return drv
 }
 
+// model's construct func
 func NewUser() {
     user := new(User)
     user.Id = helpers.RandString(32)
     return user
 }
 
+// repo's construct func
 func NewUserRepo() (repo *Repo, err error) {
     repo, err = NewRepo(new(User), driver(), &MysqlModifier)
-    if err != nil {
-        return
-    }
-
-    return
 }
 
 
