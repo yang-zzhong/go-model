@@ -89,13 +89,43 @@ func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
 		}
 		switch field.(type) {
 		case string:
-			value := ""
+			var value string
 			pointers[i] = &value
-		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
-			value := 0
+		case int:
+			var value int
 			pointers[i] = &value
-		case float32, float64:
-			value := 0.0
+		case int8:
+			var value int8
+			pointers[i] = &value
+		case int16:
+			var value int16
+			pointers[i] = &value
+		case int32:
+			var value int32
+			pointers[i] = &value
+		case int64:
+			var value int64
+			pointers[i] = &value
+		case uint:
+			var value uint
+			pointers[i] = &value
+		case uint8:
+			var value uint8
+			pointers[i] = &value
+		case uint16:
+			var value uint16
+			pointers[i] = &value
+		case uint32:
+			var value uint32
+			pointers[i] = &value
+		case uint64:
+			var value uint64
+			pointers[i] = &value
+		case float32:
+			var value float32
+			pointers[i] = &value
+		case float64:
+			var value float64
 			pointers[i] = &value
 		case sql.NullString:
 			value := new(sql.NullString)
@@ -132,53 +162,7 @@ func (mm *ModelMapper) Pack(columns []string, valueReceivers []interface{}) inte
 				continue
 			}
 		}
-		switch field.Kind() {
-		case reflect.Bool:
-			field.Set(reflect.ValueOf(value.(bool)))
-		case reflect.Int:
-			field.Set(reflect.ValueOf(value.(int)))
-		case reflect.Int8:
-			field.Set(reflect.ValueOf(value.(int8)))
-		case reflect.Int16:
-			field.Set(reflect.ValueOf(value.(int16)))
-		case reflect.Int32:
-			field.Set(reflect.ValueOf(value.(int32)))
-		case reflect.Int64:
-			field.Set(reflect.ValueOf(value.(int64)))
-		case reflect.Uint:
-			field.Set(reflect.ValueOf(value.(uint)))
-		case reflect.Uint8:
-			field.Set(reflect.ValueOf(value.(uint8)))
-		case reflect.Uint16:
-			field.Set(reflect.ValueOf(value.(uint16)))
-		case reflect.Uint32:
-			field.Set(reflect.ValueOf(value.(uint32)))
-		case reflect.Uint64:
-			field.Set(reflect.ValueOf(value.(uint64)))
-		case reflect.Float32:
-			field.Set(reflect.ValueOf(value.(float32)))
-		case reflect.Float64:
-			field.Set(reflect.ValueOf(value.(float64)))
-		case reflect.Slice:
-			field.Set(reflect.ValueOf(value.([]string)))
-		case reflect.String:
-			field.Set(reflect.ValueOf(value.(string)))
-		case reflect.Struct:
-			switch value.(type) {
-			case sql.NullString:
-				field.Set(reflect.ValueOf(value.(sql.NullString)))
-			case sql.NullBool:
-				field.Set(reflect.ValueOf(value.(sql.NullBool)))
-			case sql.NullFloat64:
-				field.Set(reflect.ValueOf(value.(sql.NullFloat64)))
-			case sql.NullInt64:
-				field.Set(reflect.ValueOf(value.(sql.NullInt64)))
-			case time.Time:
-				field.Set(reflect.ValueOf(value.(time.Time)))
-			case NullTime:
-				field.Set(reflect.ValueOf(value.(NullTime)))
-			}
-		}
+		field.Set(reflect.ValueOf(value))
 	}
 
 	return mm.model
