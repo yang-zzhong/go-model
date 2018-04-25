@@ -98,12 +98,13 @@ func (repo *Repo) Fetch() (result []interface{}, err error) {
 			err = cerr
 			return
 		}
-		rerr := rows.Scan(repo.mm.ValueReceivers(columns)...)
+		receivers := repo.mm.ValueReceivers(columns)
+		rerr := rows.Scan(receivers...)
 		if rerr != nil {
 			err = rerr
 			return
 		}
-		model := reflect.ValueOf(repo.mm.Model()).Elem().Interface()
+		model := reflect.ValueOf(repo.mm.Pack(columns, receivers)).Elem().Interface()
 		result = append(result, model)
 	}
 
@@ -158,11 +159,11 @@ func (repo *Repo) Remove() error {
 }
 
 func (repo *Repo) Create(model interface{}) error {
-	repo.onCreate(model)
 	var err error
 	if err = repo.ValidateNullable(model); err != nil {
 		return err
 	}
+	repo.onCreate(model)
 	row, _ := repo.mm.Extract(model)
 	data := []map[string]interface{}{row}
 	if repo.tx != nil {

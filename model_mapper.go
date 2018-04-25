@@ -1,6 +1,8 @@
 package model
 
 import (
+	"database/sql"
+	"database/sql/driver"
 	"errors"
 	helper "github.com/yang-zzhong/go-helpers"
 	"reflect"
@@ -78,17 +80,107 @@ func parseTag(dbTag string, fd *FieldDescriptor) {
 }
 
 func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
-	value := reflect.ValueOf(mm.model).Elem()
 	pointers := make([]interface{}, len(columns))
+	values := reflect.ValueOf(mm.model).Elem()
 	for i, fieldName := range columns {
-		name := mm.FnFds[fieldName].Name
-		pointers[i] = value.FieldByName(name).Addr().Interface()
+		field := values.FieldByName(mm.FnFds[fieldName].Name).Interface()
+		if converter, ok := mm.model.(ValueConverter); ok {
+			field = converter.DBValue(fieldName, field)
+		}
+		switch field.(type) {
+		case string:
+			value := ""
+			pointers[i] = &value
+		case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+			value := 0
+			pointers[i] = &value
+		case float32, float64:
+			value := 0.0
+			pointers[i] = &value
+		case sql.NullString:
+			value := new(sql.NullString)
+			pointers[i] = value
+		case sql.NullBool:
+			value := new(sql.NullBool)
+			pointers[i] = value
+		case sql.NullFloat64:
+			value := new(sql.NullBool)
+			pointers[i] = value
+		case sql.NullInt64:
+			value := new(sql.NullInt64)
+			pointers[i] = value
+		case time.Time:
+			pointers[i] = new(time.Time)
+		case NullTime:
+			pointers[i] = new(NullTime)
+		}
 	}
 
 	return pointers
 }
 
-func (mm *ModelMapper) Model() interface{} {
+func (mm *ModelMapper) Pack(columns []string, valueReceivers []interface{}) interface{} {
+	values := reflect.ValueOf(mm.model).Elem()
+	for i, fieldName := range columns {
+		field := values.FieldByName(mm.FnFds[fieldName].Name)
+		elem := reflect.ValueOf(valueReceivers[i])
+		value := elem.Elem().Interface()
+		if converter, ok := mm.model.(ValueConverter); ok {
+			val, catched := converter.Value(fieldName, value)
+			if catched {
+				field.Set(val)
+				continue
+			}
+		}
+		switch field.Kind() {
+		case reflect.Bool:
+			field.Set(reflect.ValueOf(value.(bool)))
+		case reflect.Int:
+			field.Set(reflect.ValueOf(value.(int)))
+		case reflect.Int8:
+			field.Set(reflect.ValueOf(value.(int8)))
+		case reflect.Int16:
+			field.Set(reflect.ValueOf(value.(int16)))
+		case reflect.Int32:
+			field.Set(reflect.ValueOf(value.(int32)))
+		case reflect.Int64:
+			field.Set(reflect.ValueOf(value.(int64)))
+		case reflect.Uint:
+			field.Set(reflect.ValueOf(value.(uint)))
+		case reflect.Uint8:
+			field.Set(reflect.ValueOf(value.(uint8)))
+		case reflect.Uint16:
+			field.Set(reflect.ValueOf(value.(uint16)))
+		case reflect.Uint32:
+			field.Set(reflect.ValueOf(value.(uint32)))
+		case reflect.Uint64:
+			field.Set(reflect.ValueOf(value.(uint64)))
+		case reflect.Float32:
+			field.Set(reflect.ValueOf(value.(float32)))
+		case reflect.Float64:
+			field.Set(reflect.ValueOf(value.(float64)))
+		case reflect.Slice:
+			field.Set(reflect.ValueOf(value.([]string)))
+		case reflect.String:
+			field.Set(reflect.ValueOf(value.(string)))
+		case reflect.Struct:
+			switch value.(type) {
+			case sql.NullString:
+				field.Set(reflect.ValueOf(value.(sql.NullString)))
+			case sql.NullBool:
+				field.Set(reflect.ValueOf(value.(sql.NullBool)))
+			case sql.NullFloat64:
+				field.Set(reflect.ValueOf(value.(sql.NullFloat64)))
+			case sql.NullInt64:
+				field.Set(reflect.ValueOf(value.(sql.NullInt64)))
+			case time.Time:
+				field.Set(reflect.ValueOf(value.(time.Time)))
+			case NullTime:
+				field.Set(reflect.ValueOf(value.(NullTime)))
+			}
+		}
+	}
+
 	return mm.model
 }
 
@@ -99,11 +191,11 @@ func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}
 		return
 	}
 	for _, item := range mm.Fds {
+		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
 		if converter, ok := model.(ValueConverter); ok {
-			result[item.FieldName] = converter.DBValue(item.Name)
+			result[item.FieldName] = converter.DBValue(item.FieldName, value)
 			continue
 		}
-		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
 		switch value.(type) {
 		case time.Time:
 			if value.(time.Time).IsZero() {
@@ -155,4 +247,23 @@ func (mm *ModelMapper) modelValue(model interface{}) (result interface{}, err er
 
 	result = mValue
 	return
+}
+
+type NullTime struct {
+	Time  time.Time
+	Valid bool // Valid is true if Time is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (nt *NullTime) Scan(value interface{}) error {
+	nt.Time, nt.Valid = value.(time.Time)
+	return nil
+}
+
+// Value implements the driver Valuer interface.
+func (nt NullTime) Value() (driver.Value, error) {
+	if !nt.Valid {
+		return nil, nil
+	}
+	return nt.Time, nil
 }
