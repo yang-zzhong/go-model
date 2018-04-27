@@ -74,6 +74,7 @@ func init() {
 
 func TestRepo(t *T) {
 	repo := NewRepo(&User{}, con, &MysqlModifier{})
+	defer con.Close()
 	// fmt.Println(repo.CreateTable())
 	// repo.Where("name", LIKE, "yang%")
 	// repo.Create(user)
@@ -92,7 +93,10 @@ func TestRepo(t *T) {
 	// user := &User{"3", "y-zhong", 25, 2, sql.NullString{"", true}, time.Now()}
 	// repo.Update(user)
 
-	fmt.Println(repo.Find("3"))
-
-	fmt.Println(repo.Fetch())
+	// fmt.Println(repo.Find("3").(*User))
+	items, _ := repo.Fetch()
+	for _, item := range items {
+		fmt.Println(item)
+	}
+	// fmt.Println(repo.Fetch())
 }

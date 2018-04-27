@@ -165,7 +165,7 @@ func (mm *ModelMapper) Pack(columns []string, valueReceivers []interface{}) inte
 		field.Set(reflect.ValueOf(value))
 	}
 
-	return mm.model
+	return values.Interface()
 }
 
 func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}, err error) {

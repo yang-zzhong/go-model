@@ -104,8 +104,7 @@ func (repo *Repo) Fetch() (result []interface{}, err error) {
 			err = rerr
 			return
 		}
-		model := reflect.ValueOf(repo.mm.Pack(columns, receivers)).Elem().Interface()
-		result = append(result, model)
+		result = append(result, repo.mm.Pack(columns, receivers))
 	}
 
 	return
