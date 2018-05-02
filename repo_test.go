@@ -66,7 +66,7 @@ func (u *User) Value(fieldName string, val interface{}) (result reflect.Value, c
 
 func init() {
 	var err error
-	con, err = sql.Open("mysql", "root:xxx@/test_go?parseTime=true")
+	con, err = sql.Open("mysql", "root:young159357789@/test_go?parseTime=true")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -88,14 +88,15 @@ func TestRepo(t *T) {
 	// 	fmt.Println(err)
 	// }
 
-	fmt.Println(repo.Find("y-zhong--"))
+	// fmt.Println(repo.Find("y-zhong--"))
 	// repo = NewRepo(&User{}, con, &MysqlModifier{})
 	// user := &User{"3", "y-zhong", 25, 2, sql.NullString{"", true}, time.Now()}
 	// repo.Update(user)
 
 	// fmt.Println(repo.Find("3").(*User))
 	items, _ := repo.Fetch()
-	for _, item := range items {
+	for id, item := range items {
+		fmt.Println(id)
 		fmt.Println(item)
 	}
 	// fmt.Println(repo.Fetch())

@@ -85,6 +85,7 @@ func (repo *Repo) Find(val interface{}) interface{} {
 }
 
 func (repo *Repo) Fetch() (result map[string]interface{}, err error) {
+	result = make(map[string]interface{})
 	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
 	repo.executed()
 	if qerr != nil {
