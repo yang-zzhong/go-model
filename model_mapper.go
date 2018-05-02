@@ -149,7 +149,7 @@ func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
 	return pointers
 }
 
-func (mm *ModelMapper) Pack(columns []string, valueReceivers []interface{}) interface{} {
+func (mm *ModelMapper) Pack(columns []string, valueReceivers []interface{}) (model interface{}, id string) {
 	values := reflect.ValueOf(mm.model).Elem()
 	for i, fieldName := range columns {
 		field := values.FieldByName(mm.FnFds[fieldName].Name)
@@ -159,13 +159,19 @@ func (mm *ModelMapper) Pack(columns []string, valueReceivers []interface{}) inte
 			val, catched := converter.Value(fieldName, value)
 			if catched {
 				field.Set(val)
+				if fieldName == mm.model.(Model).PK() {
+					id = val.String()
+				}
 				continue
 			}
 		}
 		field.Set(reflect.ValueOf(value))
+		if fieldName == mm.model.(Model).PK() {
+			id = reflect.ValueOf(value).String()
+		}
 	}
-
-	return values.Interface()
+	model = values.Interface()
+	return
 }
 
 func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}, err error) {

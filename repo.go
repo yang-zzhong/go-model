@@ -64,8 +64,8 @@ func (repo *Repo) CallOnCreate(model interface{}) *Repo {
 
 func (repo *Repo) One() interface{} {
 	result, _ := repo.Fetch()
-	if len(result) > 0 {
-		return result[0]
+	for _, one := range result {
+		return one
 	}
 	return nil
 }
@@ -78,14 +78,13 @@ func (repo *Repo) executed() {
 func (repo *Repo) Find(val interface{}) interface{} {
 	repo.Where(repo.model.(Model).PK(), val.(string)).Limit(1)
 	result, _ := repo.Fetch()
-	if len(result) > 0 {
-		return result[0]
+	for _, one := range result {
+		return one
 	}
 	return nil
 }
 
-func (repo *Repo) Fetch() (result []interface{}, err error) {
-	result = []interface{}{}
+func (repo *Repo) Fetch() (result map[string]interface{}, err error) {
 	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
 	repo.executed()
 	if qerr != nil {
@@ -104,7 +103,8 @@ func (repo *Repo) Fetch() (result []interface{}, err error) {
 			err = rerr
 			return
 		}
-		result = append(result, repo.mm.Pack(columns, receivers))
+		m, id := repo.mm.Pack(columns, receivers)
+		result[id] = m
 	}
 
 	return
