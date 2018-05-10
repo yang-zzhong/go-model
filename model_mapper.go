@@ -83,6 +83,11 @@ func (mm *ModelMapper) ValueReceivers(columns []string) []interface{} {
 	pointers := make([]interface{}, len(columns))
 	values := reflect.ValueOf(mm.model).Elem()
 	for i, fieldName := range columns {
+		if _, ok := mm.FnFds[fieldName]; !ok {
+			var value int64
+			pointers[i] = &value
+			continue
+		}
 		field := values.FieldByName(mm.FnFds[fieldName].Name).Interface()
 		if converter, ok := mm.model.(ValueConverter); ok {
 			field = converter.DBValue(fieldName, field)

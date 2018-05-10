@@ -11,6 +11,7 @@ import (
 
 type onModify func(model interface{})
 type txCall func(tx *sql.Tx) error
+type QueryCallback func(*sql.Rows)
 
 type Repo struct {
 	model    interface{}
@@ -82,6 +83,45 @@ func (repo *Repo) Find(val interface{}) interface{} {
 		return one
 	}
 	return nil
+}
+
+func (repo *Repo) QueryCallback(call QueryCallback) error {
+	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
+	repo.executed()
+	if qerr != nil {
+		return qerr
+	}
+	for rows.Next() {
+		call(rows)
+	}
+	return nil
+}
+
+func (repo *Repo) Query(key string) (result map[interface{}]interface{}, err error) {
+	result = make(map[interface{}]interface{})
+	rows, qerr := repo.conn.Query(repo.ForQuery(), repo.Params()...)
+	repo.executed()
+	if qerr != nil {
+		err = qerr
+		return
+	}
+	for rows.Next() {
+		columns, cerr := rows.Columns()
+		if cerr != nil {
+			err = cerr
+			return
+		}
+		receivers := repo.mm.ValueReceivers(columns)
+		rerr := rows.Scan(receivers...)
+		if rerr != nil {
+			err = rerr
+			return
+		}
+		item := repo.packItem(columns, receivers)
+		result[item[key]] = item
+	}
+
+	return
 }
 
 func (repo *Repo) Fetch() (result map[string]interface{}, err error) {
@@ -263,6 +303,15 @@ func (repo *Repo) ValidateNullable(model interface{}) error {
 	}
 
 	return nil
+}
+
+func (repo *Repo) packItem(cols []string, receivers []interface{}) map[string]interface{} {
+	item := make(map[string]interface{})
+	for i, col := range cols {
+		item[col] = reflect.ValueOf(receivers[i]).Elem().Interface()
+	}
+
+	return item
 }
 
 func isNull(value interface{}) bool {

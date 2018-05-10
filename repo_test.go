@@ -94,8 +94,18 @@ func TestRepo(t *T) {
 	// repo.Update(user)
 
 	// fmt.Println(repo.Find("3").(*User))
-	items, _ := repo.Fetch()
-	for id, item := range items {
+	repo.Select("name", E{"count(1) as quantity"}).GroupBy("name")
+	result := make(map[string]int)
+	err := repo.QueryCallback(func(rows *sql.Rows) {
+		var name string
+		var quantity int
+		rows.Scan(&name, &quantity)
+		result[name] = quantity
+	})
+	if err != nil {
+		panic(err)
+	}
+	for id, item := range result {
 		fmt.Println(id)
 		fmt.Println(item)
 	}
