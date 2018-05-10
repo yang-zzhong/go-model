@@ -296,7 +296,14 @@ func (repo *Repo) ValidateNullable(model interface{}) error {
 		return err
 	}
 	for _, item := range repo.mm.Fds {
-		value := mValue.(reflect.Value).FieldByName(item.Name).Interface()
+		v := mValue.(reflect.Value).FieldByName(item.Name)
+		if !v.IsValid() {
+			if !item.Nullable {
+				return errors.New(item.Name + " not nullable")
+			}
+			continue
+		}
+		value := v.Interface()
 		if !item.Nullable && isNull(value) {
 			return errors.New(item.Name + " not nullable")
 		}
