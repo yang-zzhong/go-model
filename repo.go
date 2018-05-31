@@ -13,6 +13,16 @@ type onModify func(model interface{})
 type txCall func(tx *sql.Tx) error
 type QueryCallback func(*sql.Rows)
 
+const (
+	ONE = iota
+	MANY
+)
+
+type with struct {
+	name string
+	t    int
+}
+
 type Repo struct {
 	model    interface{}
 	conn     *sql.DB
@@ -20,12 +30,13 @@ type Repo struct {
 	onCreate onModify
 	onUpdate onModify
 	tx       *sql.Tx
+	with     []with
 	*Builder
 }
 
 var conn *sql.DB
 
-func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
+func NewCustomRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	repo := new(Repo)
 	repo.model = m
 	repo.conn = conn
@@ -36,6 +47,16 @@ func NewRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	repo.From(repo.model.(Model).TableName())
 
 	return repo
+}
+
+func NewRepo(m interface{}) (repo *Repo, err error) {
+	if !Inited() {
+		err = errors.New("initiate required")
+		return
+	}
+
+	repo = NewCustomRepo(m, conn.db, conn.modifier)
+	return
 }
 
 func (repo *Repo) WithTx(tx *sql.Tx) *Repo {
@@ -132,6 +153,7 @@ func (repo *Repo) Fetch() (result map[string]interface{}, err error) {
 		err = qerr
 		return
 	}
+	columnValues := repo.columnValues()
 	for rows.Next() {
 		columns, cerr := rows.Columns()
 		if cerr != nil {
@@ -145,9 +167,25 @@ func (repo *Repo) Fetch() (result map[string]interface{}, err error) {
 			return
 		}
 		m, id := repo.mm.Pack(columns, receivers)
+		if err = repo.voc(m, columnValues); err != nil {
+			return
+		}
 		result[id] = m
 	}
-
+	var ones []map[string]interface{}
+	var manys []map[string][]interface{}
+	if ones, err = repo.ones(columnValues); err != nil {
+		return
+	}
+	if manys, err = repo.manys(columnValues); err != nil {
+		return
+	}
+	for _, rel := range ones {
+		result[rel["id"]].addOne(rel["name"], rel["model"])
+	}
+	for _, rel := range manys {
+		result[rel["id"]].addMany(rel["name"], rel["model"])
+	}
 	return
 }
 
@@ -303,6 +341,17 @@ func (repo *Repo) ValidateNullable(model interface{}) error {
 	}
 
 	return nil
+}
+
+func (repo *Repo) With(name string) *Repo {
+	if _, _, err := repo.m.(Model).HasOne(name); err == nil {
+		repo.with = append(repo.with, with{name, ONE})
+	}
+	if _, _, err := repo.m.(Model).HasMany(name); err == nil {
+		repo.with = append(repo.with, with{name, MANY})
+	}
+
+	return repo
 }
 
 func (repo *Repo) packItem(cols []string, receivers []interface{}) map[string]interface{} {
