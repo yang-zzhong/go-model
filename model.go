@@ -5,11 +5,29 @@ import (
 	"reflect"
 )
 
+type Nexus map[string]string
+
 type Model interface {
-	TableName() string // table name in db
-	PK() string        // primary key
-	HasOne(name string) (Model, map[string]string, error)
-	HasMany(name string) (Model, map[string]string, error)
+	//
+	// table name in database
+	//
+	TableName() string
+	//
+	// primary key for the table
+	//
+	PK() string
+}
+
+type NexusOne interface {
+	HasOne(name string) (interface{}, Nexus, bool)
+	DeclareOne(name string, one interface{}, n Nexus)
+	SetOne(name string, one interface{})
+}
+
+type NexusMany interface {
+	HasMany(name string) (interface{}, Nexus, bool)
+	DeclareMany(name string, many interface{}, n Nexus)
+	SetMany(name string, many interface{})
 }
 
 type ValueConverter interface {
@@ -17,63 +35,86 @@ type ValueConverter interface {
 	Value(fieldName string, value interface{}) (reflect.Value, bool)
 }
 
-type Relation struct {
-	rel    Model
-	linker map[string]string
+type RelationShip struct {
+	target interface{}
+	n      Nexus
 }
 
 type BaseModel struct {
-	hasOne  map[string]Relation
-	hasMany map[string]Relation
+	ones       map[string]RelationShip
+	manys      map[string]RelationShip
+	onesValue  map[string]interface{}
+	manysValue map[string]map[interface{}]interface{}
 }
 
-func (m *BaseModel) DeclareOne(name string, one Model, relation map[string]string) {
-	m.hasOne[name] = Relation{one, relation}
+func NewBaseModel() *BaseModel {
+	m := new(BaseModel)
+	m.ones = make(map[string]RelationShip)
+	m.manys = make(map[string]RelationShip)
+	m.onesValue = make(map[string]interface{})
+	m.manysValue = make(map[string]map[interface{}]interface{})
+	return m
 }
 
-func (m *BaseModel) DeclareMany(name string, many Model, relation map[string]string) {
-	m.hasMany[name] = Relation{many, relation}
+func (m *BaseModel) DeclareOne(name string, one interface{}, n Nexus) {
+	m.ones[name] = RelationShip{one, n}
 }
 
-func (m *BaseModel) HasOne(name string) (one Model, rel map[string]string, err error) {
-	if conf, ok := m.hasOne[name]; ok {
-		one = conf.rel
-		rel = one.linker
+func (m *BaseModel) DeclareMany(name string, many interface{}, n Nexus) {
+	m.manys[name] = RelationShip{many, n}
+}
+
+func (m *BaseModel) HasOne(name string) (one interface{}, n Nexus, err error) {
+	if conf, ok := m.ones[name]; ok {
+		one = conf.target
+		n = conf.n
 		return
 	}
-	err = errors.New("relation " + name + " not found!")
+	err = errors.New("relationship " + name + " not found!")
 	return
 }
 
-func (m *BaseModel) HasMany(name string) (one Model, rel map[string]string, err error) {
-	if conf, ok := m.hasMany[name]; ok {
-		one = conf.rel
-		rel = one.linker
+func (m *BaseModel) HasMany(name string) (many interface{}, n Nexus, err error) {
+	if conf, ok := m.manys[name]; ok {
+		many = conf.target
+		n = conf.n
 		return
 	}
-	err = errors.New("relation " + name + " not found!")
+	err = errors.New("relationship " + name + " not found!")
 	return
 }
 
-func (m *BaseModel) One(name string) (result interface{}, err error) {
+func (m *BaseModel) SetOne(name string, model interface{}) {
+	m.onesValue[name] = model
+}
+
+func (m *BaseModel) SetMany(name string, models map[interface{}]interface{}) {
+	m.manysValue[name] = models
+}
+
+func (m *BaseModel) findOne(model interface{}, name string) (result interface{}, err error) {
 	var one interface{}
-	var rel map[string]string
-	if one, rel, err = m.HasOne(name); err != nil {
+	var n Nexus
+	if one, n, err = m.HasOne(name); err != nil {
 		return
 	}
 	var repo *Repo
 	if repo, err = NewRepo(one); err != nil {
 		return
 	}
-	for af, bf := range rel {
-		repo.Where(bf, querybuilder.Field(af))
+	for af, bf := range n {
+		value, err := fieldValue(model, af)
+		if err != nil {
+			return result, err
+		}
+		repo.Where(bf, value)
 	}
 	result, err = repo.One()
 
 	return
 }
 
-func (m *BaseModel) Many(name string) (result map[string]interface{}, err error) {
+func (m *BaseModel) findMany(model interface{}, name string) (result map[interface{}]interface{}, err error) {
 	var many interface{}
 	var rel map[string]string
 	if many, rel, err = m.HasMany(name); err != nil {
@@ -84,9 +125,44 @@ func (m *BaseModel) Many(name string) (result map[string]interface{}, err error)
 		return
 	}
 	for af, bf := range rel {
-		repo.Where(bf, querybuilder.Field(af))
+		value, err := fieldValue(model, af)
+		if err != nil {
+			return result, err
+		}
+		repo.Where(bf, value)
 	}
 	result, err = repo.Fetch()
+
+	return
+}
+
+func One(m *BaseModel, model interface{}, name string) (one interface{}, err error) {
+	if v, ok := m.onesValue[name]; ok {
+		one = v
+		return
+	}
+	if m.onesValue[name], err = m.findOne(model, name); err != nil {
+		return
+	}
+	one = m.onesValue[name]
+	return
+}
+
+func Many(m *BaseModel, model interface{}, name string) (many map[interface{}]interface{}, err error) {
+	if v, ok := m.manysValue[name]; ok {
+		many = v
+		return
+	}
+	if m.manysValue[name], err = m.findMany(model, name); err != nil {
+		return
+	}
+	many = m.manysValue[name]
+	return
+}
+
+func fieldValue(m interface{}, field string) (value interface{}, err error) {
+	mm := NewModelMapper(m)
+	value, err = mm.ColValue(m, field)
 
 	return
 }

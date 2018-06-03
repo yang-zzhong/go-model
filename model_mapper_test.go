@@ -2,98 +2,53 @@ package model
 
 import (
 	"database/sql"
+	"log"
+	"reflect"
 	. "testing"
 	"time"
 )
 
 type TestUser struct {
-	Id        string         `db:"id varchar(128) pk"`
-	Name      string         `db:"name varchar(32) uk"`
-	Age       int            `db:"age int"`
-	Level     int            `db:"level int"`
-	Optional  sql.NullString `db:"optional varchar(256) nil"`
-	CreatedAt time.Time      `db:"created_at datetime"`
+	Id        string    `db:"id varchar(128) pk"`
+	Name      string    `db:"name varchar(32) uk"`
+	Age       int       `db:"age int"`
+	Level     int       `db:"level int nil"`
+	Optional  string    `db:"optional varchar(256) nil"`
+	CreatedAt time.Time `db:"created_at datetime"`
+	UpdatedAt time.Time `db:"updated_at datetime nil"`
 }
 
-var now time.Time
-var user *TestUser
-var dbValues map[string]interface{}
-var values map[string]interface{}
-var mapper *ModelMapper
-
-func init() {
-	now = time.Now()
-	user = new(TestUser)
-	user.Id = "123456"
-	user.Name = "test-name"
-	user.Age = 25
-	user.CreatedAt = now
-	dbValues = map[string]interface{}{
-		"id":         "123456",
-		"name":       "test-name",
-		"age":        25,
-		"level":      0,
-		"optional":   sql.NullString{"", false},
-		"created_at": now,
-	}
-	values = map[string]interface{}{
-		"Id":        "123456",
-		"Name":      "test-name",
-		"Age":       25,
-		"Level":     0,
-		"Optional":  sql.NullString{"", false},
-		"CreatedAt": now,
-	}
-	mapper = NewModelMapper(new(TestUser))
+func (u *TestUser) PK() string {
+	return "id"
 }
 
-func TestExtract(t *T) {
-	result, err := mapper.Extract(user)
+func (u *TestUser) TableName() string {
+	return "users"
+}
+
+func TestCols(t *T) {
+	mm := NewModelMapper(new(TestUser))
+	cols, err := mm.cols([]string{"id", "name", "age", "level", "optional", "created_at", "updated_at"})
 	if err != nil {
-		panic(err)
+		log.Print(err)
 	}
-	for fieldName, value := range result {
-		if value != dbValues[fieldName] {
-			t.Fatalf(
-				"Extract: %s's value error, error value is %v, should be %v",
-				fieldName,
-				value,
-				dbValues[fieldName],
-			)
-		}
+	for _, col := range cols {
+		log.Print(reflect.TypeOf(col).Elem())
 	}
 }
 
-func TestDBFieldValue(t *T) {
-	for fieldName, value := range dbValues {
-		dbValue, err := mapper.DbFieldValue(user, fieldName)
-		if err != nil {
-			panic(err)
-		}
-		if dbValue != value {
-			t.Fatalf(
-				"DbFieldValue: %s's value error, error value is %v, should be %v",
-				fieldName,
-				dbValue,
-				value,
-			)
-		}
-	}
-}
+func TestPack(t *T) {
+	mm := NewModelMapper(new(TestUser))
+	cols := []string{"id", "name", "age", "level", "optional", "created_at", "updated_at"}
+	id := "1"
+	name := "yang-zhong"
+	age := 15
+	level := sql.NullInt64{0, false}
+	optional := sql.NullString{"hello", true}
+	created_at := time.Now()
+	updated_at := NullTime{time.Now(), false}
+	res := []interface{}{&id, &name, &age, &level, &optional, &created_at, &updated_at}
 
-func TestFieldValue(t *T) {
-	for field, value := range values {
-		tValue, err := mapper.FieldValue(user, field)
-		if err != nil {
-			panic(err)
-		}
-		if tValue != value {
-			t.Fatalf(
-				"FieldValue: %s's value error, error value is %v, should be %v",
-				field,
-				tValue,
-				value,
-			)
-		}
-	}
+	m, i, err := mm.Pack(cols, res)
+	log.Print(m, i, err)
 }
