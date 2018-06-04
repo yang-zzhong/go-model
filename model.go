@@ -4,6 +4,9 @@ import (
 	"reflect"
 )
 
+//
+// column to column relationship
+//
 type Nexus map[string]string
 
 type Model interface {
@@ -17,50 +20,70 @@ type Model interface {
 	PK() string
 }
 
+//
+// a has one nexus
+//
 type NexusOne interface {
+	// get a has one nexus from it's name
 	HasOne(name string) (interface{}, Nexus, bool)
+	// declare a has one relationship
 	DeclareOne(name string, one interface{}, n Nexus)
+	// set fetch result of has one relationship
 	SetOne(name string, one interface{})
 }
 
+//
+// a has many nexus
+//
 type NexusMany interface {
+	// get a has many nexus from it's name
 	HasMany(name string) (interface{}, Nexus, bool)
+	// declare a has many relationship
 	DeclareMany(name string, many interface{}, n Nexus)
+	// set fetch result of has many relationship
 	SetMany(name string, many map[interface{}]interface{})
 }
 
+//
+// value converter from database value to struct field value and from struct filed value to database value
+//
 type ValueConverter interface {
+	// convert value to database value
 	DBValue(fieldName string, value interface{}) interface{}
+	// conver database value to struct field value
 	Value(fieldName string, value interface{}) (reflect.Value, bool)
 }
 
-type RelationShip struct {
-	target interface{}
-	n      Nexus
+// relationship
+type relationship struct {
+	target interface{} // related with who
+	n      Nexus       // related
 }
 
+// base model struct
 type Base struct {
-	ones       map[string]RelationShip
-	manys      map[string]RelationShip
-	onesValue  map[string]interface{}
-	manysValue map[string]map[interface{}]interface{}
+	ones       map[string]relationship                // has one relationship
+	manys      map[string]relationship                // has many relationship
+	onesValue  map[string]interface{}                 // fetched result of has one relationship
+	manysValue map[string]map[interface{}]interface{} // fetched result of has many relationship
 }
 
+// new a base model
 func NewBase() *Base {
 	m := new(Base)
-	m.ones = make(map[string]RelationShip)
-	m.manys = make(map[string]RelationShip)
+	m.ones = make(map[string]relationship)
+	m.manys = make(map[string]relationship)
 	m.onesValue = make(map[string]interface{})
 	m.manysValue = make(map[string]map[interface{}]interface{})
 	return m
 }
 
 func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
-	m.ones[name] = RelationShip{one, n}
+	m.ones[name] = relationship{one, n}
 }
 
 func (m *Base) DeclareMany(name string, many interface{}, n Nexus) {
-	m.manys[name] = RelationShip{many, n}
+	m.manys[name] = relationship{many, n}
 }
 
 func (m *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {

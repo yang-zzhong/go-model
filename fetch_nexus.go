@@ -1,5 +1,6 @@
 package model
 
+// a mid process needed struct see nexusValues
 type fornexus struct {
 	m     interface{}
 	n     Nexus
@@ -7,6 +8,7 @@ type fornexus struct {
 	where map[string][]interface{}
 }
 
+// a nexus result struct to hold the query result of a nexus
 type nexusResult struct {
 	name string
 	m    interface{}
@@ -15,6 +17,7 @@ type nexusResult struct {
 	data map[interface{}]interface{}
 }
 
+// append a value to a nexus
 func (fn fornexus) append(field string, val interface{}) {
 	if _, ok := fn.where[field]; !ok {
 		fn.where[field] = []interface{}{}
@@ -22,6 +25,8 @@ func (fn fornexus) append(field string, val interface{}) {
 	fn.where[field] = append(fn.where[field], val)
 }
 
+// WithOne tell repo that find nexus defined by model
+// if nexus not defined, WithOne will ignore
 func (repo *Repo) WithOne(name string) *Repo {
 	if m, n, ok := repo.model.(NexusOne).HasOne(name); ok {
 		repo.withs = append(repo.withs, with{name, m, n, t_one})
@@ -29,6 +34,8 @@ func (repo *Repo) WithOne(name string) *Repo {
 	return repo
 }
 
+// WithMany tell repo that find nexus defined by model
+// if nexus not defined, WithMany will ignore
 func (repo *Repo) WithMany(name string) *Repo {
 	if m, n, ok := repo.model.(NexusMany).HasMany(name); ok {
 		repo.withs = append(repo.withs, with{name, m, n, t_many})
@@ -36,7 +43,11 @@ func (repo *Repo) WithMany(name string) *Repo {
 	return repo
 }
 
+//
+// nexusValues fetch all nexus result according the repo fetch result
+//
 func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult {
+	// find each nexus's query where and model
 	mid := make(map[string]fornexus)
 	for _, m := range models {
 		for _, w := range repo.withs {
@@ -53,6 +64,7 @@ func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult 
 			}
 		}
 	}
+	// fetch nexus result according to mid
 	result := []nexusResult{}
 	for name, fn := range mid {
 		r, _ := NewRepo(fn.m)
@@ -67,6 +79,9 @@ func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult 
 	return result
 }
 
+//
+// bind nexus result to each fetched model
+//
 func (repo *Repo) bindNexus(m interface{}, nr []nexusResult) {
 	manys := make(map[string]map[interface{}]interface{})
 	for _, n := range nr {

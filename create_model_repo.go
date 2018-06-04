@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// DropRepo will drop the database table about the repo
 func (repo *Repo) DropRepo() error {
 	repo.Clean()
 	tableName := repo.QuotedTableName()
@@ -14,6 +15,7 @@ func (repo *Repo) DropRepo() error {
 	return err
 }
 
+// CreateRepo will create database table about the repo
 func (repo *Repo) CreateRepo() error {
 	sqlang, indexes := repo.forCreateTable()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -31,6 +33,7 @@ func (repo *Repo) CreateRepo() error {
 	}, ctx, nil)
 }
 
+// forCreateTable generate the create database table sql lang and create database index sql lang
 func (repo *Repo) forCreateTable() (sqlang string, indexes []string) {
 	sqlang = "CREATE TABLE " + repo.QuotedTableName()
 	indexes = []string{}

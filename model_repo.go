@@ -7,56 +7,62 @@ import (
 	"reflect"
 )
 
-type onModify func(model interface{})
+// oncreate and onupdate callback type
+type modify func(model interface{})
 
+// connection struct
 type conn struct {
 	db *sql.DB
 	m  Modifier
 }
 
 var (
-	c      conn
-	inited bool
+	c      conn // Config set the conn as default conn
+	inited bool // if inited
 )
 
 const (
-	t_one  = 1
-	t_many = 2
+	t_one  = 1 // relationship is a has one relationship
+	t_many = 2 // relationship is a has many relationship
 )
 
+// a relationship with repo
 type with struct {
-	name string
-	m    interface{}
-	n    Nexus
-	t    int
+	name string      // relationship name
+	m    interface{} // relationship target
+	n    Nexus       // relationship nexus
+	t    int         // relationship type t_one|t_many
 }
 
+// config the default connected db
 func Config(db *sql.DB, m Modifier) {
 	c.db = db
 	c.m = m
 	inited = true
 }
 
+// repo
 type Repo struct {
-	model    interface{}
-	conn     *sql.DB
-	mm       *ModelMapper
-	modifier Modifier
-	onCreate onModify
-	onUpdate onModify
-	withs    []with
-	tx       *sql.Tx
+	model    interface{}  // repo row model
+	conn     *sql.DB      // conn
+	mm       *ModelMapper // model mapper
+	modifier Modifier     // sql modifier
+	oncreate modify       // on create callback
+	onupdate modify       // on update callback
+	withs    []with       // maintain fetch model relationship
+	tx       *sql.Tx      // tx
 	*Builder
 }
 
+// new custom repo
 func NewCustomRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	repo := new(Repo)
 	repo.model = m
 	repo.mm = NewModelMapper(m)
 	repo.conn = conn
 	repo.modifier = p
-	repo.onCreate = func(model interface{}) {}
-	repo.onUpdate = func(model interface{}) {}
+	repo.oncreate = func(model interface{}) {}
+	repo.onupdate = func(model interface{}) {}
 	repo.Builder = NewBuilder(p)
 	repo.withs = []with{}
 	repo.From(repo.model.(Model).TableName())
@@ -64,6 +70,7 @@ func NewCustomRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	return repo
 }
 
+// new default repo
 func NewRepo(m interface{}) (repo *Repo, err error) {
 	if !inited {
 		err = errors.New("not config the db and modifier yet")
@@ -71,6 +78,17 @@ func NewRepo(m interface{}) (repo *Repo, err error) {
 	}
 	repo = NewCustomRepo(m, c.db, c.m)
 	return
+}
+
+// set on create callback
+func (repo *Repo) OnCreate(c modify) *Repo {
+	repo.oncreate = c
+	return repo
+}
+
+func (repo *Repo) OnUpdate(c modify) *Repo {
+	repo.onupdate = c
+	return repo
 }
 
 func (repo *Repo) Clean() {
@@ -169,12 +187,14 @@ func (repo *Repo) Update(models interface{}) error {
 	switch val.Kind() {
 	case reflect.Struct:
 		row = repo.mm.Extract(models)
+		repo.onupdate(models)
 		_, err = repo.exec(repo.ForUpdate(row))
 		return err
 	case reflect.Slice:
 		slice := models.([]interface{})
 		for _, m := range slice {
 			row = repo.mm.Extract(m)
+			repo.onupdate(m)
 			_, err = repo.exec(repo.ForUpdate(row))
 			return err
 		}
@@ -182,6 +202,7 @@ func (repo *Repo) Update(models interface{}) error {
 		maps := models.([]interface{})
 		for _, m := range maps {
 			row = repo.mm.Extract(m)
+			repo.onupdate(m)
 			_, err = repo.exec(repo.ForUpdate(row))
 			return err
 		}
@@ -198,15 +219,18 @@ func (repo *Repo) Create(models interface{}) error {
 	}
 	switch val.Kind() {
 	case reflect.Struct:
+		repo.oncreate(val.Interface())
 		data = append(data, repo.mm.Extract(val.Interface()))
 	case reflect.Slice:
 		slice := val.Interface().([]interface{})
 		for _, m := range slice {
+			repo.oncreate(m)
 			data = append(data, repo.mm.Extract(m))
 		}
 	case reflect.Map:
 		maps := val.Interface().(map[interface{}]interface{})
 		for _, m := range maps {
+			repo.oncreate(m)
 			data = append(data, repo.mm.Extract(m))
 		}
 	}
