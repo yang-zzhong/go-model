@@ -1,7 +1,6 @@
 package model
 
 import (
-	"errors"
 	"reflect"
 )
 
@@ -27,7 +26,7 @@ type NexusOne interface {
 type NexusMany interface {
 	HasMany(name string) (interface{}, Nexus, bool)
 	DeclareMany(name string, many interface{}, n Nexus)
-	SetMany(name string, many interface{})
+	SetMany(name string, many map[interface{}]interface{})
 }
 
 type ValueConverter interface {
@@ -40,15 +39,15 @@ type RelationShip struct {
 	n      Nexus
 }
 
-type BaseModel struct {
+type Base struct {
 	ones       map[string]RelationShip
 	manys      map[string]RelationShip
 	onesValue  map[string]interface{}
 	manysValue map[string]map[interface{}]interface{}
 }
 
-func NewBaseModel() *BaseModel {
-	m := new(BaseModel)
+func NewBase() *Base {
+	m := new(Base)
 	m.ones = make(map[string]RelationShip)
 	m.manys = make(map[string]RelationShip)
 	m.onesValue = make(map[string]interface{})
@@ -56,46 +55,49 @@ func NewBaseModel() *BaseModel {
 	return m
 }
 
-func (m *BaseModel) DeclareOne(name string, one interface{}, n Nexus) {
+func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
 	m.ones[name] = RelationShip{one, n}
 }
 
-func (m *BaseModel) DeclareMany(name string, many interface{}, n Nexus) {
+func (m *Base) DeclareMany(name string, many interface{}, n Nexus) {
 	m.manys[name] = RelationShip{many, n}
 }
 
-func (m *BaseModel) HasOne(name string) (one interface{}, n Nexus, err error) {
+func (m *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {
 	if conf, ok := m.ones[name]; ok {
 		one = conf.target
 		n = conf.n
+		has = true
 		return
 	}
-	err = errors.New("relationship " + name + " not found!")
+	has = false
 	return
 }
 
-func (m *BaseModel) HasMany(name string) (many interface{}, n Nexus, err error) {
+func (m *Base) HasMany(name string) (many interface{}, n Nexus, has bool) {
 	if conf, ok := m.manys[name]; ok {
 		many = conf.target
 		n = conf.n
+		has = true
 		return
 	}
-	err = errors.New("relationship " + name + " not found!")
+	has = false
 	return
 }
 
-func (m *BaseModel) SetOne(name string, model interface{}) {
+func (m *Base) SetOne(name string, model interface{}) {
 	m.onesValue[name] = model
 }
 
-func (m *BaseModel) SetMany(name string, models map[interface{}]interface{}) {
+func (m *Base) SetMany(name string, models map[interface{}]interface{}) {
 	m.manysValue[name] = models
 }
 
-func (m *BaseModel) findOne(model interface{}, name string) (result interface{}, err error) {
+func (m *Base) findOne(model interface{}, name string) (result interface{}, err error) {
 	var one interface{}
 	var n Nexus
-	if one, n, err = m.HasOne(name); err != nil {
+	var has bool
+	if one, n, has = m.HasOne(name); !has {
 		return
 	}
 	var repo *Repo
@@ -114,10 +116,11 @@ func (m *BaseModel) findOne(model interface{}, name string) (result interface{},
 	return
 }
 
-func (m *BaseModel) findMany(model interface{}, name string) (result map[interface{}]interface{}, err error) {
+func (m *Base) findMany(model interface{}, name string) (result map[interface{}]interface{}, err error) {
 	var many interface{}
 	var rel map[string]string
-	if many, rel, err = m.HasMany(name); err != nil {
+	var has bool
+	if many, rel, has = m.HasMany(name); !has {
 		return
 	}
 	var repo *Repo
@@ -136,7 +139,7 @@ func (m *BaseModel) findMany(model interface{}, name string) (result map[interfa
 	return
 }
 
-func One(m *BaseModel, model interface{}, name string) (one interface{}, err error) {
+func One(m *Base, model interface{}, name string) (one interface{}, err error) {
 	if v, ok := m.onesValue[name]; ok {
 		one = v
 		return
@@ -148,7 +151,7 @@ func One(m *BaseModel, model interface{}, name string) (one interface{}, err err
 	return
 }
 
-func Many(m *BaseModel, model interface{}, name string) (many map[interface{}]interface{}, err error) {
+func Many(m *Base, model interface{}, name string) (many map[interface{}]interface{}, err error) {
 	if v, ok := m.manysValue[name]; ok {
 		many = v
 		return

@@ -16,14 +16,14 @@ type User struct {
 	Level     int       `db:"level int"`
 	Optional  string    `db:"optional varchar(256) nil"`
 	CreatedAt time.Time `db:"created_at datetime"`
-	*BaseModel
+	*Base
 }
 
 type Book struct {
 	Id     string `db:"id varchar(128) pk"`
 	UserId string `db:"user_id varchar(128)"`
 	Name   string `db:"name varchar(128)"`
-	*BaseModel
+	*Base
 }
 
 func (u *User) TableName() string {
@@ -43,24 +43,24 @@ func (b *Book) PK() string {
 }
 
 func (u *User) One(name string) (interface{}, error) {
-	return One(u.BaseModel, u, name)
+	return One(u.Base, u, name)
 }
 
 func (u *User) Many(name string) (interface{}, error) {
-	return Many(u.BaseModel, u, name)
+	return Many(u.Base, u, name)
 }
 
 func (b *Book) Many(name string) (map[interface{}]interface{}, error) {
-	return Many(b.BaseModel, b, name)
+	return Many(b.Base, b, name)
 }
 
 func (b *Book) One(name string) (interface{}, error) {
-	return One(b.BaseModel, b, name)
+	return One(b.Base, b, name)
 }
 
 func NewUser() *User {
 	user := new(User)
-	user.BaseModel = NewBaseModel()
+	user.Base = NewBase()
 	user.DeclareMany("books", new(Book), map[string]string{
 		"id": "user_id",
 	})
@@ -69,7 +69,7 @@ func NewUser() *User {
 
 func NewBook() *Book {
 	book := new(Book)
-	book.BaseModel = NewBaseModel()
+	book.Base = NewBase()
 	book.DeclareOne("author", new(User), map[string]string{
 		"user_id": "id",
 	})
@@ -84,6 +84,46 @@ func init() {
 		panic(err)
 	}
 	Config(con, &MysqlModifier{})
+}
+
+func TestFetchNexus(t *T) {
+	var users map[interface{}]interface{}
+	var books map[interface{}]interface{}
+	var err error
+	log.Print("begin fetch nexus")
+	ur := createUserRepo()
+	br := createBookRepo()
+	if _, err = insertUser(ur); err != nil {
+		clearRepo(ur)
+		clearRepo(br)
+		panic(err)
+	}
+	if _, err := insertBook(br); err != nil {
+		clearRepo(ur)
+		clearRepo(br)
+		panic(err)
+	}
+	if users, err = ur.WithMany("books").Fetch(); err != nil {
+		clearRepo(ur)
+		clearRepo(br)
+		panic(err)
+	}
+	for _, user := range users {
+		u := user.(User)
+		log.Print((&u).Many("books"))
+	}
+	if books, err = br.WithOne("author").Fetch(); err != nil {
+		clearRepo(ur)
+		clearRepo(br)
+		panic(err)
+	}
+	for _, book := range books {
+		b := book.(Book)
+		log.Print((&b).One("author"))
+	}
+	clearRepo(ur)
+	clearRepo(br)
+	log.Print("end fetch nexus")
 }
 
 func TestWithMany(t *T) {

@@ -20,8 +20,8 @@ var (
 )
 
 const (
-	t_one = iota
-	t_many
+	t_one  = 1
+	t_many = 2
 )
 
 type with struct {
@@ -75,6 +75,20 @@ func NewRepo(m interface{}) (repo *Repo, err error) {
 
 func (repo *Repo) Clean() {
 	repo.Builder.Init()
+}
+
+func (repo *Repo) Count() (int, error) {
+	rows, err := repo.conn.Query(repo.ForCount(), repo.Params()...)
+	if err != nil {
+		return 0, err
+	}
+	repo.Builder.Init()
+	var count int
+	for rows.Next() {
+		rows.Scan(&count)
+		break
+	}
+	return count, nil
 }
 
 func (repo *Repo) Fetch() (models map[interface{}]interface{}, err error) {

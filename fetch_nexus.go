@@ -9,6 +9,7 @@ type fornexus struct {
 
 type nexusResult struct {
 	name string
+	m    interface{}
 	n    Nexus
 	t    int
 	data map[interface{}]interface{}
@@ -59,7 +60,7 @@ func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult 
 			r.WhereIn(field, val)
 		}
 		if data, err := r.Fetch(); err == nil {
-			result = append(result, nexusResult{name, fn.n, fn.t, data})
+			result = append(result, nexusResult{name, fn.m, fn.n, fn.t, data})
 		}
 	}
 
@@ -69,8 +70,8 @@ func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult 
 func (repo *Repo) bindNexus(m interface{}, nr []nexusResult) {
 	manys := make(map[string]map[interface{}]interface{})
 	for _, n := range nr {
+		nmm := NewModelMapper(n.m)
 		for id, nm := range n.data {
-			nmm := NewModelMapper(nm)
 			eq := true
 			for af, bf := range n.n {
 				afv, _ := repo.mm.ColValue(m, af)
