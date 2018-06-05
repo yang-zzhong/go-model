@@ -89,7 +89,7 @@ func TestFetchNexus(t *T) {
 		if br, err = book.Repo(); err != nil {
 			return err
 		}
-		if users, err := ur.WithMany("books").Fetch(); err != nil {
+		if users, err := ur.With("books").Fetch(); err != nil {
 			return err
 		} else {
 			for _, user := range users {
@@ -104,7 +104,7 @@ func TestFetchNexus(t *T) {
 				}
 			}
 		}
-		if books, err := br.WithOne("author").Fetch(); err != nil {
+		if books, err := br.With("author").Fetch(); err != nil {
 			return err
 		} else {
 			for _, book := range books {

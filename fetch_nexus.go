@@ -25,27 +25,19 @@ func (fn fornexus) append(field string, val interface{}) {
 	fn.where[field] = append(fn.where[field], val)
 }
 
-// WithOne tell repo that find nexus defined by model
-// if nexus not defined, WithOne will ignore
-func (repo *Repo) WithOne(name string) *Repo {
+// With tell repo that find nexus defined by model
+// if nexus not defined, With will ignore
+func (repo *Repo) With(name string) *Repo {
 	if m, n, ok := repo.model.(NexusOne).HasOne(name); ok {
 		repo.withs = append(repo.withs, with{name, m, n, t_one})
 	}
-	return repo
-}
-
-// WithMany tell repo that find nexus defined by model
-// if nexus not defined, WithMany will ignore
-func (repo *Repo) WithMany(name string) *Repo {
 	if m, n, ok := repo.model.(NexusMany).HasMany(name); ok {
 		repo.withs = append(repo.withs, with{name, m, n, t_many})
 	}
 	return repo
 }
 
-//
 // nexusValues fetch all nexus result according the repo fetch result
-//
 func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult {
 	// find each nexus's query where and model
 	mid := make(map[string]fornexus)

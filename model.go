@@ -5,58 +5,36 @@ import (
 	"reflect"
 )
 
-//
 // column to column relationship
-//
 type Nexus map[string]string
 
 type Model interface {
-	//
-	// table name in database
-	//
-	TableName() string
-	//
-	// primary key for the table
-	//
-	PK() string
+	TableName() string // table name in database
+	PK() string        // primary key for the table
 }
 
-//
 // a has one nexus
-//
 type NexusOne interface {
-	// get a has one nexus from it's name
-	HasOne(name string) (interface{}, Nexus, bool)
-	// declare a has one relationship
-	DeclareOne(name string, one interface{}, n Nexus)
-	// set fetch result of has one relationship
-	SetOne(name string, one interface{})
+	HasOne(name string) (interface{}, Nexus, bool)    // get a has one nexus from it's name
+	DeclareOne(name string, one interface{}, n Nexus) // declare a has one relationship
+	SetOne(name string, one interface{})              // set fetch result of has one relationship
 }
 
-//
 // a has many nexus
-//
 type NexusMany interface {
-	// get a has many nexus from it's name
-	HasMany(name string) (interface{}, Nexus, bool)
-	// declare a has many relationship
-	DeclareMany(name string, many interface{}, n Nexus)
-	// set fetch result of has many relationship
-	SetMany(name string, many map[interface{}]interface{})
+	HasMany(name string) (interface{}, Nexus, bool)        // get a has many nexus from it's name
+	DeclareMany(name string, many interface{}, n Nexus)    // declare a has many relationship
+	SetMany(name string, many map[interface{}]interface{}) // set fetch result of has many relationship
 }
 
 type Mapable interface {
 	Mapper() *ModelMapper
 }
 
-//
 // value converter from database value to struct field value and from struct filed value to database value
-//
 type ValueConverter interface {
-	// convert value to database value
-	DBValue(fieldName string, value interface{}) interface{}
-	// conver database value to struct field value
-	Value(fieldName string, value interface{}) (reflect.Value, bool)
+	DBValue(fieldName string, value interface{}) interface{}         // convert value to database value
+	Value(fieldName string, value interface{}) (reflect.Value, bool) // conver database value to struct field value
 }
 
 type BaseI interface {
@@ -102,29 +80,6 @@ func (m *Base) DeclareMany(name string, many interface{}, n Nexus) {
 func (m *Base) InitBase(model interface{}) {
 	SetBase(model, NewBase(model))
 }
-
-func GetBase(model interface{}) (*Base, bool) {
-	value := reflect.ValueOf(model).Elem()
-	for i := 0; i < value.NumField(); i++ {
-		field := value.Field(i)
-		if field.Type().Name() == "" {
-			return field.Interface().(*Base), true
-		}
-	}
-
-	return nil, false
-}
-
-func SetBase(model interface{}, base *Base) {
-	value := reflect.ValueOf(model).Elem()
-	for i := 0; i < value.NumField(); i++ {
-		field := value.Field(i)
-		if field.Type().Name() == "" {
-			field.Set(reflect.ValueOf(base))
-		}
-	}
-}
-
 func (m *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {
 	if conf, ok := m.ones[name]; ok {
 		one = conf.target
@@ -309,4 +264,26 @@ func NewModel(m interface{}) interface{} {
 	m.(BaseI).InitBase(m)
 
 	return m
+}
+
+func GetBase(model interface{}) (*Base, bool) {
+	value := reflect.ValueOf(model).Elem()
+	for i := 0; i < value.NumField(); i++ {
+		field := value.Field(i)
+		if field.Type().Name() == "" {
+			return field.Interface().(*Base), true
+		}
+	}
+
+	return nil, false
+}
+
+func SetBase(model interface{}, base *Base) {
+	value := reflect.ValueOf(model).Elem()
+	for i := 0; i < value.NumField(); i++ {
+		field := value.Field(i)
+		if field.Type().Name() == "" {
+			field.Set(reflect.ValueOf(base))
+		}
+	}
 }
