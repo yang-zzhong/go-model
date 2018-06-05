@@ -4,10 +4,8 @@
 ```go
 
 import (
-    . "github.com/yang-zzhong/go-querybuilder"
     model "github.com/yang-zzhong/go-model"
-    helpers "github.com/yang-zzhong/go-helpers"
-    "database/sql"
+    "time"
 )
 
 // define a model
@@ -38,6 +36,7 @@ type Book struct {
     Name       string       `db:"name varchar(32)"`
     AuthorId   string       `db:"author_id char(36)"`
     PublishedAt time.Time   `db:"published_at datetime"`
+    *model.Base
 }
 // define book table name
 func (book *Book) TableName() {
