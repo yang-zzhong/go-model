@@ -2,8 +2,6 @@ package model
 
 import (
 	"database/sql"
-	"log"
-	"reflect"
 	. "testing"
 	"time"
 )
@@ -28,12 +26,9 @@ func (u *TestUser) TableName() string {
 
 func TestCols(t *T) {
 	mm := NewModelMapper(new(TestUser))
-	cols, err := mm.cols([]string{"id", "name", "age", "level", "optional", "created_at", "updated_at"})
+	_, err := mm.cols([]string{"id", "name", "age", "level", "optional", "created_at", "updated_at"})
 	if err != nil {
-		log.Print(err)
-	}
-	for _, col := range cols {
-		log.Print(reflect.TypeOf(col).Elem())
+		t.Fatal(err)
 	}
 }
 
@@ -49,6 +44,7 @@ func TestPack(t *T) {
 	updated_at := NullTime{time.Now(), false}
 	res := []interface{}{&id, &name, &age, &level, &optional, &created_at, &updated_at}
 
-	m, i, err := mm.Pack(cols, res)
-	log.Print(m, i, err)
+	if _, _, err := mm.Pack(cols, res, new(TestUser).PK()); err != nil {
+		t.Fatal(err)
+	}
 }

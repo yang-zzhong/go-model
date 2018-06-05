@@ -59,7 +59,7 @@ func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult 
 					make(map[string][]interface{})}
 			}
 			for af, bf := range w.n {
-				val, _ := repo.mm.ColValue(m, af)
+				val, _ := repo.model.(Mapable).Mapper().ColValue(m, af)
 				mid[w.name].append(bf, val)
 			}
 		}
@@ -85,12 +85,11 @@ func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult 
 func (repo *Repo) bindNexus(m interface{}, nr []nexusResult) {
 	manys := make(map[string]map[interface{}]interface{})
 	for _, n := range nr {
-		nmm := NewModelMapper(n.m)
 		for id, nm := range n.data {
 			eq := true
 			for af, bf := range n.n {
-				afv, _ := repo.mm.ColValue(m, af)
-				bfv, _ := nmm.ColValue(nm, bf)
+				afv, _ := repo.model.(Mapable).Mapper().ColValue(m, af)
+				bfv, _ := n.m.(Mapable).Mapper().ColValue(nm, bf)
 				if afv != bfv {
 					eq = false
 					break

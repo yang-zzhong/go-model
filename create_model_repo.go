@@ -38,7 +38,7 @@ func (repo *Repo) forCreateTable() (sqlang string, indexes []string) {
 	sqlang = "CREATE TABLE " + repo.QuotedTableName()
 	indexes = []string{}
 	cols := []string{}
-	repo.mm.each(func(fd *fieldDescriptor) bool {
+	repo.model.(Mapable).Mapper().each(func(fd *fieldDescriptor) bool {
 		col := []string{fd.colname, fd.coltype}
 		if fd.ispk {
 			col = append(col, "PRIMARY KEY")

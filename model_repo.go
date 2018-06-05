@@ -7,6 +7,8 @@ import (
 	"reflect"
 )
 
+type rowshandler func(*sql.Rows, []string)
+
 // oncreate and onupdate callback type
 type modify func(model interface{})
 
@@ -43,14 +45,13 @@ func Config(db *sql.DB, m Modifier) {
 
 // repo
 type Repo struct {
-	model    interface{}  // repo row model
-	conn     *sql.DB      // conn
-	mm       *ModelMapper // model mapper
-	modifier Modifier     // sql modifier
-	oncreate modify       // on create callback
-	onupdate modify       // on update callback
-	withs    []with       // maintain fetch model relationship
-	tx       *sql.Tx      // tx
+	model    interface{} // repo row model
+	conn     *sql.DB     // conn
+	modifier Modifier    // sql modifier
+	oncreate modify      // on create callback
+	onupdate modify      // on update callback
+	withs    []with      // maintain fetch model relationship
+	tx       *sql.Tx     // tx
 	*Builder
 }
 
@@ -58,7 +59,6 @@ type Repo struct {
 func NewCustomRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	repo := new(Repo)
 	repo.model = m
-	repo.mm = NewModelMapper(m)
 	repo.conn = conn
 	repo.modifier = p
 	repo.oncreate = func(model interface{}) {}
@@ -86,21 +86,23 @@ func (repo *Repo) OnCreate(c modify) *Repo {
 	return repo
 }
 
+// set on update callback
 func (repo *Repo) OnUpdate(c modify) *Repo {
 	repo.onupdate = c
 	return repo
 }
 
+// clean builder
 func (repo *Repo) Clean() {
 	repo.Builder.Init()
 }
 
+// count
 func (repo *Repo) Count() (int, error) {
 	rows, err := repo.conn.Query(repo.ForCount(), repo.Params()...)
 	if err != nil {
 		return 0, err
 	}
-	repo.Builder.Init()
 	var count int
 	for rows.Next() {
 		rows.Scan(&count)
@@ -109,24 +111,35 @@ func (repo *Repo) Count() (int, error) {
 	return count, nil
 }
 
-func (repo *Repo) Fetch() (models map[interface{}]interface{}, err error) {
-	var (
-		rows    *sql.Rows
-		columns []string
-		cols    []interface{}
-	)
-	models = make(map[interface{}]interface{})
+func (repo *Repo) Query(handle rowshandler) error {
+	var rows *sql.Rows
+	var cols []string
+	var err error
 	if rows, err = repo.query(); err != nil {
-		return
+		return err
 	}
 	defer rows.Close()
-	colget := false
+	if cols, err = rows.Columns(); err != nil {
+		return err
+	}
 	for rows.Next() {
+		handle(rows, cols)
+	}
+
+	return nil
+}
+
+func (repo *Repo) Fetch() (models map[interface{}]interface{}, err error) {
+	return repo.FetchKey(repo.model.(Model).PK())
+}
+
+func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err error) {
+	var cols []interface{}
+	models = make(map[interface{}]interface{})
+	colget := false
+	err = repo.Query(func(rows *sql.Rows, columns []string) {
 		if !colget {
-			if columns, err = rows.Columns(); err != nil {
-				return
-			}
-			if cols, err = repo.mm.cols(columns); err != nil {
+			if cols, err = repo.model.(Mapable).Mapper().cols(columns); err != nil {
 				return
 			}
 			colget = true
@@ -135,11 +148,14 @@ func (repo *Repo) Fetch() (models map[interface{}]interface{}, err error) {
 			return
 		}
 		var m, id interface{}
-		m, id, err = repo.mm.Pack(columns, cols)
+		m, id, err = repo.model.(Mapable).Mapper().Pack(columns, cols, col)
 		if err != nil {
 			return
 		}
 		models[id] = m
+	})
+	if err != nil {
+		return
 	}
 	nexusValues := repo.nexusValues(models)
 	for id, _ := range models {
@@ -186,14 +202,14 @@ func (repo *Repo) Update(models interface{}) error {
 	}
 	switch val.Kind() {
 	case reflect.Struct:
-		row = repo.mm.Extract(models)
+		row = repo.model.(Mapable).Mapper().Extract(models)
 		repo.onupdate(models)
 		_, err = repo.exec(repo.ForUpdate(row))
 		return err
 	case reflect.Slice:
 		slice := models.([]interface{})
 		for _, m := range slice {
-			row = repo.mm.Extract(m)
+			row = repo.model.(Mapable).Mapper().Extract(m)
 			repo.onupdate(m)
 			_, err = repo.exec(repo.ForUpdate(row))
 			return err
@@ -201,7 +217,7 @@ func (repo *Repo) Update(models interface{}) error {
 	case reflect.Map:
 		maps := models.([]interface{})
 		for _, m := range maps {
-			row = repo.mm.Extract(m)
+			row = repo.model.(Mapable).Mapper().Extract(m)
 			repo.onupdate(m)
 			_, err = repo.exec(repo.ForUpdate(row))
 			return err
@@ -220,18 +236,18 @@ func (repo *Repo) Create(models interface{}) error {
 	switch val.Kind() {
 	case reflect.Struct:
 		repo.oncreate(val.Interface())
-		data = append(data, repo.mm.Extract(val.Interface()))
+		data = append(data, repo.model.(Mapable).Mapper().Extract(val.Interface()))
 	case reflect.Slice:
 		slice := val.Interface().([]interface{})
 		for _, m := range slice {
 			repo.oncreate(m)
-			data = append(data, repo.mm.Extract(m))
+			data = append(data, repo.model.(Mapable).Mapper().Extract(m))
 		}
 	case reflect.Map:
 		maps := val.Interface().(map[interface{}]interface{})
 		for _, m := range maps {
 			repo.oncreate(m)
-			data = append(data, repo.mm.Extract(m))
+			data = append(data, repo.model.(Mapable).Mapper().Extract(m))
 		}
 	}
 	_, err = repo.exec(repo.ForInsert(data))

@@ -143,7 +143,7 @@ func (mm *ModelMapper) cols(columns []string) (result []interface{}, err error) 
 	return
 }
 
-func (mm *ModelMapper) Pack(columns []string, cols []interface{}) (model interface{}, id interface{}, err error) {
+func (mm *ModelMapper) Pack(columns []string, cols []interface{}, key string) (model interface{}, id interface{}, err error) {
 	var fd *fieldDescriptor
 	var ok bool
 	var converter ValueConverter
@@ -156,7 +156,7 @@ func (mm *ModelMapper) Pack(columns []string, cols []interface{}) (model interfa
 		if converter, ok = mm.model.(ValueConverter); ok {
 			if val, catched := converter.Value(colname, col); catched {
 				field.Set(val)
-				if colname == mm.model.(Model).PK() {
+				if colname == key {
 					id = val.Interface()
 				}
 				continue
