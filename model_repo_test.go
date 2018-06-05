@@ -89,10 +89,10 @@ func TestFetchNexus(t *T) {
 		var books map[interface{}]interface{}
 		var err error
 		var ur, br *Repo
-		if ur, err = NewRepo(NewUser()); err != nil {
+		if ur, err = NewUser().Repo(); err != nil {
 			return err
 		}
-		if br, err = NewRepo(NewBook()); err != nil {
+		if br, err = NewBook().Repo(); err != nil {
 			return err
 		}
 		if _, err = insertUser(ur); err != nil {
@@ -138,10 +138,10 @@ func TestWithMany(t *T) {
 		var user *User
 		var err error
 		var ur, br *Repo
-		if ur, err = NewRepo(NewUser()); err != nil {
+		if ur, err = NewUser().Repo(); err != nil {
 			return err
 		}
-		if br, err = NewRepo(NewBook()); err != nil {
+		if br, err = NewBook().Repo(); err != nil {
 			return err
 		}
 		if user, err = insertUser(ur); err != nil {
@@ -168,10 +168,10 @@ func TestWithOne(t *T) {
 		var book *Book
 		var err error
 		var ur, br *Repo
-		if ur, err = NewRepo(NewUser()); err != nil {
+		if ur, err = NewUser().Repo(); err != nil {
 			return err
 		}
-		if br, err = NewRepo(NewBook()); err != nil {
+		if br, err = NewBook().Repo(); err != nil {
 			return err
 		}
 		if _, err = insertUser(ur); err != nil {
@@ -195,7 +195,7 @@ func TestCreate(t *T) {
 	suit(func(t *T) error {
 		var repo *Repo
 		var err error
-		if repo, err = NewRepo(NewUser()); err != nil {
+		if repo, err = NewUser().Repo(); err != nil {
 			return err
 		}
 		if _, err := insertUser(repo); err != nil {
@@ -209,7 +209,7 @@ func TestFetch(t *T) {
 	suit(func(t *T) error {
 		var repo *Repo
 		var err error
-		if repo, err = NewRepo(NewUser()); err != nil {
+		if repo, err = NewUser().Repo(); err != nil {
 			return err
 		}
 		if _, err := insertUser(repo); err != nil {
@@ -232,7 +232,7 @@ func TestFind(t *T) {
 	suit(func(t *T) error {
 		var repo *Repo
 		var err error
-		if repo, err = NewRepo(NewUser()); err != nil {
+		if repo, err = NewUser().Repo(); err != nil {
 			return err
 		}
 		if _, err := insertUser(repo); err != nil {
@@ -272,7 +272,7 @@ func insertBook(repo *Repo) (*Book, error) {
 func createUserRepo() *Repo {
 	var repo *Repo
 	var err error
-	if repo, err = NewRepo(NewUser()); err != nil {
+	if repo, err = NewUser().Repo(); err != nil {
 		panic(err)
 	}
 	if err = repo.CreateRepo(); err != nil {
@@ -284,7 +284,7 @@ func createUserRepo() *Repo {
 func createBookRepo() *Repo {
 	var repo *Repo
 	var err error
-	if repo, err = NewRepo(NewBook()); err != nil {
+	if repo, err = NewBook().Repo(); err != nil {
 		panic(err)
 	}
 	if err = repo.CreateRepo(); err != nil {

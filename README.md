@@ -5,7 +5,7 @@
 
 import (
     . "github.com/yang-zzhong/go-querybuilder"
-    . "github.com/yang-zzhong/go-model"
+    model "github.com/yang-zzhong/go-model"
     helpers "github.com/yang-zzhong/go-helpers"
     "database/sql"
 )
@@ -15,8 +15,8 @@ type User struct {
     Id          string      `db:"id char(36) pk"`
     Account     string      `db:"account varchar(36) uk"`
     Name        string      `db:"name varchar(36)"`
-    Address     string      `db:"address varchar(128) nil"`
     Birthday    time.Time   `db:"birthday datetime"`
+    *model.Base
 }
 
 func (user *User) PK() string {
@@ -27,69 +27,117 @@ func (user *User) TableName() string {
     return "user"
 }
 
-// 获取db
-func driver() *sql.DB {
-    drv, err := sql.Open("mysql", "mysql_user:password@/db?parseTime=true")
-    if err != nil {
-        panic(err)
-    }
-
-    return drv
+func (user *User) Many(name string) (map[interface{]]interface{}, error) {
+    return model.Many(user.Base, user, name)
 }
 
-// model's construct func
-func NewUser() {
+func NewUser() *User {
     user := new(User)
     user.Id = helpers.RandString(32)
+    user.Base = model.NewBase(user)
+    book := new(Book)
+    book.Base = model.NewBase(book)
+    user.DeclareMany("books", book, map[string]string {
+        "id": "user_id",
+    })
+
     return user
 }
 
-// repo's construct func
-func NewUserRepo() (repo *Repo, err error) {
-    repo, err = NewRepo(new(User), driver(), &MysqlModifier)
+type Book struct {
+    Id         string       `db:"id char(36) pk"`
+    Name       string       `db:"name varchar(32)"`
+    AuthorId   string       `db:"author_id char(36)"`
+    PublishedAt time.Time   `db:"published_at datetime"`
 }
 
+func (book *Book) PK() {
+    return "id"
+}
 
-repo, err := NewUserRepo()
-if err != nil {
+func (book *Book) TableName() {
+    return "books"
+}
+
+func (book *Book) One(name string) (interface{}, error) {
+    return model.One(book.Base, book, name)
+}
+
+func NewBook() *Book {
+    book := new(Book)
+    book.Id = helpers.RandString(32)
+    book.Base = NewBase(book)
+
+    user := new(User)
+    user.Base = NewBase(user)
+
+    book.DeclareOne("author", user, map[string]string{
+        "author_id": "id",
+    })
+
+    return book
+}
+
+// create user
+user := NewUser()
+user.Name = "Mr. Bob"
+user.Age = 15
+user.Account = "Mr_Bob"
+user.Birthday = time.Now()
+if err := user.Create(); err != nil {
     panic(err)
 }
 
-// 创建表
-repo.CreateTable()
-
-model := NewUser()
-model.Account = "my-account-name"
-model.Name = "my-name"
-model.Birthday = time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-
-// 创建model
-if err := repo.Create(model); err != nil {
+// create book
+book := NewBook()
+book.Name = "one two three"
+book.AuthorId = user.Id
+book.PublishedAt = time.Now()
+if err := book.Create(); err != nil {
     panic(err)
 }
 
-item := repo.Find("id value")
-if item == nil {
-    panic("user not found")
-}
-user := item.(*User)
-
-user.Name = "another name"
-
-// 更新model
-if err := repo.Update(user); err != nil {
+// get many book
+if books, err := user.Many("books"); err != nil {
     panic(err)
+} else {
+    for book_id, m := range books {
+        book := m.(Book)
+    }
 }
 
-// 根据条件找model
+// get one author
+if m, err := user.One("author"); err != nil {
+    panic(err)
+} else {
+    user := m.(User)
+}
 
-repo.Where("name", LIKE, "name").Quote(func(repo *Repo) {
-    repo.Where("birthday", GT, time.Date(2000, time.November, 0, 0, 0, 0, 0, time.UTC))
-    repo.Or().Where("birthday", LT, time.Date(1990, time.November, 0, 0, 0, 0, 0, time.UTC))
-})
+// fetch user with many book
+if models, err := user.Repo().WithMany("books").Fetch(); err != nil {
+    panic(err)
+} else {
+    for id, model := range models {
+        user := model.(User)
+        if books, err := user.Many("books"); err == nil {
+            // handle books
+        } else {
+            panic(err)
+        }
+    }
+}
 
-repo.Count()        // count
-// repo.One()       // 取第一个
-// repo.Fetch()     // 取所有数据
-
+// fetch book with one author
+if models, err := book.Repo().WithOne("author").Fetch(); err != nil {
+    panic(err)
+} else {
+    for id, model := range models {
+        book := model.(Book)
+        if user, err := user.One("author"); err == nil {
+            // handle user
+        } else {
+            panic(err)
+        }
+    }
+}
 ```

@@ -203,6 +203,10 @@ func (base *Base) fieldValue(m interface{}, field string) (value interface{}, er
 	return
 }
 
+func (base *Base) Repo() (*Repo, error) {
+	return NewRepo(base.mapper.model)
+}
+
 func MarshalJSON(v interface{}) ([]byte, error) {
 	return json.Marshal(Map(v))
 }
