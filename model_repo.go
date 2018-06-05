@@ -193,6 +193,14 @@ func (repo *Repo) Find(id interface{}) (interface{}, error) {
 	return nil, nil
 }
 
+func (repo *Repo) UpdateRaw() error {
+	return nil
+}
+
+func (repo *Repo) DeleteRaw() error {
+	return nil
+}
+
 func (repo *Repo) Update(models interface{}) error {
 	var row map[string]interface{}
 	var err error
@@ -253,6 +261,10 @@ func (repo *Repo) Create(models interface{}) error {
 	_, err = repo.exec(repo.ForInsert(data))
 
 	return err
+}
+
+func (repo *Repo) Delete(models interface{}) error {
+	return nil
 }
 
 func (repo *Repo) exec(sql string) (sql.Result, error) {

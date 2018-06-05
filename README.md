@@ -18,19 +18,15 @@ type User struct {
     Birthday    time.Time   `db:"birthday datetime"`
     *model.Base
 }
-
-func (user *User) PK() string {
-    return "id"
-}
-
+// define table of user
 func (user *User) TableName() string {
     return "user"
 }
-
+// define many func
 func (user *User) Many(name string) (map[interface{]]interface{}, error) {
     return model.Many(user.Base, user, name)
 }
-
+// user constructor
 func NewUser() *User {
     user := new(User)
     user.Id = helpers.RandString(32)
@@ -38,7 +34,7 @@ func NewUser() *User {
     book := new(Book)
     book.Base = model.NewBase(book)
     user.DeclareMany("books", book, map[string]string {
-        "id": "user_id",
+        "id": "author_id",
     })
 
     return user
@@ -50,27 +46,21 @@ type Book struct {
     AuthorId   string       `db:"author_id char(36)"`
     PublishedAt time.Time   `db:"published_at datetime"`
 }
-
-func (book *Book) PK() {
-    return "id"
-}
-
+// define book table name
 func (book *Book) TableName() {
     return "books"
 }
-
+// define one func
 func (book *Book) One(name string) (interface{}, error) {
     return model.One(book.Base, book, name)
 }
-
+// define book constructor
 func NewBook() *Book {
     book := new(Book)
     book.Id = helpers.RandString(32)
     book.Base = NewBase(book)
-
     user := new(User)
     user.Base = NewBase(user)
-
     book.DeclareOne("author", user, map[string]string{
         "author_id": "id",
     })
@@ -80,10 +70,12 @@ func NewBook() *Book {
 
 // create user
 user := NewUser()
-user.Name = "Mr. Bob"
-user.Age = 15
-user.Account = "Mr_Bob"
-user.Birthday = time.Now()
+user.Fill(map[string]interface{}{
+    "name": "Mr. Bob",
+    "age": 15,
+    "account": "Mr_Bob",
+    "birthday": time.Now(),
+})
 if err := user.Create(); err != nil {
     panic(err)
 }

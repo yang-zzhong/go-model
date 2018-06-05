@@ -207,6 +207,72 @@ func (base *Base) Repo() (*Repo, error) {
 	return NewRepo(base.mapper.model)
 }
 
+func (base *Base) One(name string) (interface{}, error) {
+	return One(base, base.mapper.model, name)
+}
+
+func (base *Base) Many(name string) (map[interface{}]interface{}, error) {
+	return Many(base, base.mapper.model, name)
+}
+
+func (base *Base) MarshalJSON() ([]byte, error) {
+	return MarshalJSON(base.mapper.model)
+}
+
+func (base *Base) Map() map[string]interface{} {
+	return Map(base.mapper.model)
+}
+
+func (base *Base) Create() error {
+	if repo, err := base.Repo(); err == nil {
+		return repo.Create(base.mapper.model)
+	} else {
+		return err
+	}
+}
+
+func (base *Base) Update() error {
+	if repo, err := base.Repo(); err == nil {
+		err := repo.Update(base.mapper.model)
+		return err
+	} else {
+		return err
+	}
+}
+
+func (base *Base) Delete() error {
+	if repo, err := base.Repo(); err == nil {
+		err := repo.Delete(base.mapper.model)
+		return err
+	} else {
+		return err
+	}
+}
+
+func (base *Base) Fill(data map[string]interface{}) {
+	var fd *fieldDescriptor
+	var ok bool
+	for colname, val := range data {
+		if fd, ok = base.mapper.fd(colname); !ok {
+			continue
+		}
+		field := base.mapper.value.FieldByName(fd.fieldname)
+		field.Set(reflect.ValueOf(val))
+	}
+}
+
+func (base *Base) PK() string {
+	var pk string
+	base.mapper.each(func(fd *fieldDescriptor) bool {
+		if fd.ispk {
+			pk = fd.colname
+			return false
+		}
+		return true
+	})
+	return pk
+}
+
 func MarshalJSON(v interface{}) ([]byte, error) {
 	return json.Marshal(Map(v))
 }

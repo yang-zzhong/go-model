@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	_ "github.com/go-sql-driver/mysql"
 	. "github.com/yang-zzhong/go-querybuilder"
@@ -33,32 +34,8 @@ func (u *User) TableName() string {
 	return "user"
 }
 
-func (u *User) PK() string {
-	return "id"
-}
-
 func (b *Book) TableName() string {
 	return "book"
-}
-
-func (b *Book) PK() string {
-	return "id"
-}
-
-func (u *User) One(name string) (interface{}, error) {
-	return One(u.Base, u, name)
-}
-
-func (u *User) Many(name string) (map[interface{}]interface{}, error) {
-	return Many(u.Base, u, name)
-}
-
-func (b *Book) Many(name string) (map[interface{}]interface{}, error) {
-	return Many(b.Base, b, name)
-}
-
-func (b *Book) One(name string) (interface{}, error) {
-	return One(b.Base, b, name)
 }
 
 func NewUser() *User {
@@ -83,50 +60,69 @@ func NewBook() *Book {
 	return book
 }
 
+func TestFill(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		user.Fill(map[string]interface{}{
+			"id":        "1",
+			"name":      "yang-zhong",
+			"age":       17,
+			"level":     1,
+			"create_at": time.Now(),
+		})
+		if !isUser(*user) {
+			return errors.New("fill error")
+		}
+		return nil
+	}, t, "fill")
+}
+
 func TestFetchNexus(t *T) {
 	suit(func(t *T) error {
-		var users map[interface{}]interface{}
-		var books map[interface{}]interface{}
 		var err error
 		var ur, br *Repo
-		if ur, err = NewUser().Repo(); err != nil {
+		user := NewUser()
+		book := NewBook()
+		if err = insertUser(user); err != nil {
 			return err
 		}
-		if br, err = NewBook().Repo(); err != nil {
+		if err := insertBook(book); err != nil {
 			return err
 		}
-		if _, err = insertUser(ur); err != nil {
+		if ur, err = user.Repo(); err != nil {
 			return err
 		}
-		if _, err := insertBook(br); err != nil {
+		if br, err = book.Repo(); err != nil {
 			return err
 		}
-		if users, err = ur.WithMany("books").Fetch(); err != nil {
+		if users, err := ur.WithMany("books").Fetch(); err != nil {
 			return err
-		}
-		for _, user := range users {
-			u := user.(User)
-			var many map[interface{}]interface{}
-			if many, err = (&u).Many("books"); err != nil {
-				return err
-			}
-			for _, m := range many {
-				if !isBook(m) {
+		} else {
+			for _, user := range users {
+				u := user.(User)
+				var many map[interface{}]interface{}
+				if many, err = (&u).Many("books"); err != nil {
 					return err
+				}
+				for _, m := range many {
+					if !isBook(m) {
+						return err
+					}
 				}
 			}
 		}
-		if books, err = br.WithOne("author").Fetch(); err != nil {
+		if books, err := br.WithOne("author").Fetch(); err != nil {
 			return err
-		}
-		for _, book := range books {
-			b := book.(Book)
-			var one interface{}
-			if one, err = (&b).One("author"); err != nil {
-				return err
-			}
-			if !isUser(one) {
-				return err
+		} else {
+			for _, book := range books {
+				b := book.(Book)
+				var one interface{}
+				if one, err = (&b).One("author"); err != nil {
+					return err
+				}
+				if !isUser(one) {
+					return err
+				}
 			}
 		}
 		return nil
@@ -135,28 +131,22 @@ func TestFetchNexus(t *T) {
 
 func TestWithMany(t *T) {
 	suit(func(t *T) error {
-		var user *User
 		var err error
-		var ur, br *Repo
-		if ur, err = NewUser().Repo(); err != nil {
+		user := NewUser()
+		book := NewBook()
+		if err = insertUser(user); err != nil {
 			return err
 		}
-		if br, err = NewBook().Repo(); err != nil {
+		if err := insertBook(book); err != nil {
 			return err
 		}
-		if user, err = insertUser(ur); err != nil {
+		if many, err := user.Many("books"); err != nil {
 			return err
-		}
-		if _, err := insertBook(br); err != nil {
-			return err
-		}
-		var many map[interface{}]interface{}
-		if many, err = user.Many("books"); err != nil {
-			return err
-		}
-		for _, m := range many {
-			if !isBook(m) {
-				return err
+		} else {
+			for _, m := range many {
+				if !isBook(m) {
+					return err
+				}
 			}
 		}
 		return nil
@@ -165,26 +155,18 @@ func TestWithMany(t *T) {
 
 func TestWithOne(t *T) {
 	suit(func(t *T) error {
-		var book *Book
 		var err error
-		var ur, br *Repo
-		if ur, err = NewUser().Repo(); err != nil {
+		user := NewUser()
+		book := NewBook()
+		if err = insertUser(user); err != nil {
 			return err
 		}
-		if br, err = NewBook().Repo(); err != nil {
+		if err = insertBook(book); err != nil {
 			return err
 		}
-		if _, err = insertUser(ur); err != nil {
+		if one, err := book.One("author"); err != nil {
 			return err
-		}
-		if book, err = insertBook(br); err != nil {
-			return err
-		}
-		var one interface{}
-		if one, err = book.One("author"); err != nil {
-			return err
-		}
-		if !isUser(one) {
+		} else if !isUser(one) {
 			return errors.New("with one error")
 		}
 		return nil
@@ -193,12 +175,8 @@ func TestWithOne(t *T) {
 
 func TestCreate(t *T) {
 	suit(func(t *T) error {
-		var repo *Repo
-		var err error
-		if repo, err = NewUser().Repo(); err != nil {
-			return err
-		}
-		if _, err := insertUser(repo); err != nil {
+		user := NewUser()
+		if err := insertUser(user); err != nil {
 			return err
 		}
 		return nil
@@ -209,10 +187,11 @@ func TestFetch(t *T) {
 	suit(func(t *T) error {
 		var repo *Repo
 		var err error
-		if repo, err = NewUser().Repo(); err != nil {
+		user := NewUser()
+		if repo, err = user.Repo(); err != nil {
 			return err
 		}
-		if _, err := insertUser(repo); err != nil {
+		if err := insertUser(user); err != nil {
 			return err
 		}
 		if rows, err := repo.Fetch(); err != nil {
@@ -232,10 +211,11 @@ func TestFind(t *T) {
 	suit(func(t *T) error {
 		var repo *Repo
 		var err error
-		if repo, err = NewUser().Repo(); err != nil {
+		user := NewUser()
+		if repo, err = user.Repo(); err != nil {
 			return err
 		}
-		if _, err := insertUser(repo); err != nil {
+		if err := insertUser(user); err != nil {
 			return err
 		}
 		if model, err := repo.Find("1"); err != nil {
@@ -249,24 +229,33 @@ func TestFind(t *T) {
 	}, t, "find")
 }
 
-func insertUser(repo *Repo) (*User, error) {
-	user := NewUser()
+func TestMarsha1(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		insertUser(user)
+		if _, err := json.Marshal(user); err != nil {
+			return err
+		}
+		return nil
+	}, t, "marsha1")
+}
+
+func insertUser(user *User) error {
 	user.Id = "1"
 	user.Name = "yang-zhong"
 	user.Age = 17
 	user.Level = 1
 	user.CreatedAt = time.Now()
 
-	return user, repo.Create(user)
+	return user.Create()
 }
 
-func insertBook(repo *Repo) (*Book, error) {
-	book := NewBook()
+func insertBook(book *Book) error {
 	book.UserId = "1"
 	book.Name = "hello world"
 	book.Id = "1"
 
-	return book, repo.Create(book)
+	return book.Create()
 }
 
 func createUserRepo() *Repo {
@@ -363,12 +352,11 @@ func suit(handle handler, t *T, name string) {
 	defer db.Close()
 	ur := createUserRepo()
 	br := createBookRepo()
-	log.Print("begin: " + name)
 	err := handle(t)
-	log.Print("end: " + name)
 	clearRepo(ur)
 	clearRepo(br)
 	if err != nil {
 		t.Fatal(err)
 	}
+	log.Print(name + ": OK ^_^")
 }
