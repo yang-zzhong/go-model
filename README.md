@@ -22,10 +22,6 @@ type User struct {
 func (user *User) TableName() string {
     return "user"
 }
-// define many func
-func (user *User) Many(name string) (map[interface{]]interface{}, error) {
-    return model.Many(user.Base, user, name)
-}
 // user constructor
 func NewUser() *User {
     user := new(User)
@@ -49,10 +45,6 @@ type Book struct {
 // define book table name
 func (book *Book) TableName() {
     return "books"
-}
-// define one func
-func (book *Book) One(name string) (interface{}, error) {
-    return model.One(book.Base, book, name)
 }
 // define book constructor
 func NewBook() *Book {
