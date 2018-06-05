@@ -147,11 +147,12 @@ func (mm *ModelMapper) Pack(columns []string, cols []interface{}, key string) (m
 	var fd *fieldDescriptor
 	var ok bool
 	var converter ValueConverter
+	v := reflect.New(reflect.ValueOf(mm.model).Elem().Type()).Elem()
 	for i, colname := range columns {
 		if fd, ok = mm.fd(colname); !ok {
 			continue
 		}
-		field := mm.value.FieldByName(fd.fieldname)
+		field := v.FieldByName(fd.fieldname)
 		col := reflect.ValueOf(cols[i]).Elem().Interface()
 		if converter, ok = mm.model.(ValueConverter); ok {
 			if val, catched := converter.Value(colname, col); catched {
@@ -282,7 +283,10 @@ func (mm *ModelMapper) Pack(columns []string, cols []interface{}, key string) (m
 			id = value.Interface()
 		}
 	}
-	model = mm.value.Interface()
+	model = NewModel(v.Addr().Interface())
+	if base, ok := GetBase(mm.model); ok {
+		SetBase(model, base)
+	}
 	return
 }
 

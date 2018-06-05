@@ -59,6 +59,10 @@ type ValueConverter interface {
 	Value(fieldName string, value interface{}) (reflect.Value, bool)
 }
 
+type BaseI interface {
+	InitBase(m interface{})
+}
+
 // relationship
 type relationship struct {
 	target interface{} // related with who
@@ -86,11 +90,39 @@ func NewBase(m interface{}) *Base {
 }
 
 func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
+	one.(BaseI).InitBase(one)
 	m.ones[name] = relationship{one, n}
 }
 
 func (m *Base) DeclareMany(name string, many interface{}, n Nexus) {
+	many.(BaseI).InitBase(many)
 	m.manys[name] = relationship{many, n}
+}
+
+func (m *Base) InitBase(model interface{}) {
+	SetBase(model, NewBase(model))
+}
+
+func GetBase(model interface{}) (*Base, bool) {
+	value := reflect.ValueOf(model).Elem()
+	for i := 0; i < value.NumField(); i++ {
+		field := value.Field(i)
+		if field.Type().Name() == "" {
+			return field.Interface().(*Base), true
+		}
+	}
+
+	return nil, false
+}
+
+func SetBase(model interface{}, base *Base) {
+	value := reflect.ValueOf(model).Elem()
+	for i := 0; i < value.NumField(); i++ {
+		field := value.Field(i)
+		if field.Type().Name() == "" {
+			field.Set(reflect.ValueOf(base))
+		}
+	}
 }
 
 func (m *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {
@@ -127,7 +159,7 @@ func (m *Base) SetMany(name string, models map[interface{}]interface{}) {
 	m.manysValue[name] = models
 }
 
-func (m *Base) findOne(model interface{}, name string) (result interface{}, err error) {
+func (m *Base) findOne(name string) (result interface{}, err error) {
 	var one interface{}
 	var n Nexus
 	var has bool
@@ -139,7 +171,7 @@ func (m *Base) findOne(model interface{}, name string) (result interface{}, err 
 		return
 	}
 	for af, bf := range n {
-		value, err := m.fieldValue(model, af)
+		value, err := m.fieldValue(af)
 		if err != nil {
 			return result, err
 		}
@@ -150,7 +182,7 @@ func (m *Base) findOne(model interface{}, name string) (result interface{}, err 
 	return
 }
 
-func (m *Base) findMany(model interface{}, name string) (result map[interface{}]interface{}, err error) {
+func (m *Base) findMany(name string) (result map[interface{}]interface{}, err error) {
 	var many interface{}
 	var rel map[string]string
 	var has bool
@@ -162,7 +194,7 @@ func (m *Base) findMany(model interface{}, name string) (result map[interface{}]
 		return
 	}
 	for af, bf := range rel {
-		value, err := m.fieldValue(model, af)
+		value, err := m.fieldValue(af)
 		if err != nil {
 			return result, err
 		}
@@ -173,32 +205,8 @@ func (m *Base) findMany(model interface{}, name string) (result map[interface{}]
 	return
 }
 
-func One(m *Base, model interface{}, name string) (one interface{}, err error) {
-	if v, ok := m.onesValue[name]; ok {
-		one = v
-		return
-	}
-	if m.onesValue[name], err = m.findOne(model, name); err != nil {
-		return
-	}
-	one = m.onesValue[name]
-	return
-}
-
-func Many(m *Base, model interface{}, name string) (many map[interface{}]interface{}, err error) {
-	if v, ok := m.manysValue[name]; ok {
-		many = v
-		return
-	}
-	if m.manysValue[name], err = m.findMany(model, name); err != nil {
-		return
-	}
-	many = m.manysValue[name]
-	return
-}
-
-func (base *Base) fieldValue(m interface{}, field string) (value interface{}, err error) {
-	value, err = base.mapper.ColValue(m, field)
+func (base *Base) fieldValue(field string) (value interface{}, err error) {
+	value, err = base.mapper.ColValue(base.mapper.model, field)
 
 	return
 }
@@ -207,20 +215,44 @@ func (base *Base) Repo() (*Repo, error) {
 	return NewRepo(base.mapper.model)
 }
 
-func (base *Base) One(name string) (interface{}, error) {
-	return One(base, base.mapper.model, name)
+func (base *Base) One(name string) (one interface{}, err error) {
+	if v, ok := base.onesValue[name]; ok {
+		one = v
+		return
+	}
+	if base.onesValue[name], err = base.findOne(name); err != nil {
+		return
+	}
+	one = base.onesValue[name]
+	return
 }
 
-func (base *Base) Many(name string) (map[interface{}]interface{}, error) {
-	return Many(base, base.mapper.model, name)
+func (base *Base) Many(name string) (many map[interface{}]interface{}, err error) {
+	if v, ok := base.manysValue[name]; ok {
+		many = v
+		return
+	}
+	if base.manysValue[name], err = base.findMany(name); err != nil {
+		return
+	}
+	many = base.manysValue[name]
+	return
 }
 
 func (base *Base) MarshalJSON() ([]byte, error) {
-	return MarshalJSON(base.mapper.model)
+	return json.Marshal(base.Map())
 }
 
 func (base *Base) Map() map[string]interface{} {
-	return Map(base.mapper.model)
+	result := make(map[string]interface{})
+	mapper := base.Mapper()
+	values := mapper.modelValue(mapper.model)
+	mapper.each(func(fd *fieldDescriptor) bool {
+		result[fd.colname] = values.FieldByName(fd.fieldname).Interface()
+		return true
+	})
+
+	return result
 }
 
 func (base *Base) Create() error {
@@ -273,18 +305,8 @@ func (base *Base) PK() string {
 	return pk
 }
 
-func MarshalJSON(v interface{}) ([]byte, error) {
-	return json.Marshal(Map(v))
-}
+func NewModel(m interface{}) interface{} {
+	m.(BaseI).InitBase(m)
 
-func Map(v interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-
-	values := v.(Mapable).Mapper().modelValue(v)
-	v.(Mapable).Mapper().each(func(fd *fieldDescriptor) bool {
-		result[fd.colname] = values.FieldByName(fd.fieldname).Interface()
-		return true
-	})
-
-	return result
+	return m
 }

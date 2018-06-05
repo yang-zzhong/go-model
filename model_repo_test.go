@@ -39,22 +39,16 @@ func (b *Book) TableName() string {
 }
 
 func NewUser() *User {
-	user := new(User)
-	user.Base = NewBase(user)
-	book := new(Book)
-	book.Base = NewBase(book)
-	user.DeclareMany("books", book, map[string]string{
+	user := NewModel(new(User)).(*User)
+	user.DeclareMany("books", new(Book), map[string]string{
 		"id": "user_id",
 	})
 	return user
 }
 
 func NewBook() *Book {
-	book := new(Book)
-	book.Base = NewBase(book)
-	user := new(User)
-	user.Base = NewBase(user)
-	book.DeclareOne("author", user, map[string]string{
+	book := NewModel(new(Book)).(*Book)
+	book.DeclareOne("author", new(User), map[string]string{
 		"user_id": "id",
 	})
 	return book
@@ -70,7 +64,7 @@ func TestFill(t *T) {
 			"level":     1,
 			"create_at": time.Now(),
 		})
-		if !isUser(*user) {
+		if !isUser(user) {
 			return errors.New("fill error")
 		}
 		return nil
@@ -99,9 +93,8 @@ func TestFetchNexus(t *T) {
 			return err
 		} else {
 			for _, user := range users {
-				u := user.(User)
 				var many map[interface{}]interface{}
-				if many, err = (&u).Many("books"); err != nil {
+				if many, err = user.(*User).Many("books"); err != nil {
 					return err
 				}
 				for _, m := range many {
@@ -115,9 +108,8 @@ func TestFetchNexus(t *T) {
 			return err
 		} else {
 			for _, book := range books {
-				b := book.(Book)
 				var one interface{}
-				if one, err = (&b).One("author"); err != nil {
+				if one, err = book.(*Book).One("author"); err != nil {
 					return err
 				}
 				if !isUser(one) {
@@ -289,7 +281,7 @@ func clearRepo(repo *Repo) {
 }
 
 func isUser(m interface{}) bool {
-	if _, ok := m.(User); !ok {
+	if _, ok := m.(*User); !ok {
 		return false
 	}
 	vals := map[string]interface{}{
@@ -303,7 +295,7 @@ func isUser(m interface{}) bool {
 }
 
 func isBook(m interface{}) bool {
-	if _, ok := m.(Book); !ok {
+	if _, ok := m.(*Book); !ok {
 		return false
 	}
 	vals := map[string]interface{}{

@@ -14,6 +14,7 @@ type TestUser struct {
 	Optional  string    `db:"optional varchar(256) nil"`
 	CreatedAt time.Time `db:"created_at datetime"`
 	UpdatedAt time.Time `db:"updated_at datetime nil"`
+	*Base
 }
 
 func (u *TestUser) PK() string {

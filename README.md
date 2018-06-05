@@ -24,12 +24,9 @@ func (user *User) TableName() string {
 }
 // user constructor
 func NewUser() *User {
-    user := new(User)
+    user := NewModel(new(User)).(*User)
     user.Id = helpers.RandString(32)
-    user.Base = model.NewBase(user)
-    book := new(Book)
-    book.Base = model.NewBase(book)
-    user.DeclareMany("books", book, map[string]string {
+    user.DeclareMany("books", new(Book), map[string]string {
         "id": "author_id",
     })
 
@@ -48,12 +45,9 @@ func (book *Book) TableName() {
 }
 // define book constructor
 func NewBook() *Book {
-    book := new(Book)
+    book := NewModel(new(Book)).(*Book)
     book.Id = helpers.RandString(32)
-    book.Base = NewBase(book)
-    user := new(User)
-    user.Base = NewBase(user)
-    book.DeclareOne("author", user, map[string]string{
+    book.DeclareOne("author", new(User), map[string]string{
         "author_id": "id",
     })
 
@@ -86,7 +80,8 @@ if books, err := user.Many("books"); err != nil {
     panic(err)
 } else {
     for book_id, m := range books {
-        book := m.(Book)
+        book := m.(*Book)
+        // handle book
     }
 }
 
@@ -94,15 +89,16 @@ if books, err := user.Many("books"); err != nil {
 if m, err := user.One("author"); err != nil {
     panic(err)
 } else {
-    user := m.(User)
+    author := m.(*User)
+    // handle author
 }
 
 // fetch user with many book
 if models, err := user.Repo().WithMany("books").Fetch(); err != nil {
     panic(err)
 } else {
-    for id, model := range models {
-        user := model.(User)
+    for id, m := range models {
+        user := m.(*User)
         if books, err := user.Many("books"); err == nil {
             // handle books
         } else {
@@ -115,9 +111,9 @@ if models, err := user.Repo().WithMany("books").Fetch(); err != nil {
 if models, err := book.Repo().WithOne("author").Fetch(); err != nil {
     panic(err)
 } else {
-    for id, model := range models {
-        book := model.(Book)
-        if user, err := user.One("author"); err == nil {
+    for id, m := range models {
+        book := m.(*Book)
+        if author, err := book.One("author"); err == nil {
             // handle user
         } else {
             panic(err)
