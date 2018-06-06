@@ -97,20 +97,21 @@ func (base *Base) OnDelete(m modify) {
 	base.ondelete = m
 }
 
-func (m *Base) SetFresh(fresh bool) {
-	m.fresh = fresh
+func (base *Base) SetFresh(fresh bool) {
+	base.fresh = fresh
 }
 
-func (m *Base) DeclareMany(name string, many interface{}, n Nexus) {
+func (base *Base) DeclareMany(name string, many interface{}, n Nexus) {
 	many.(BaseI).InitBase(many)
-	m.manys[name] = relationship{many, n}
+	base.manys[name] = relationship{many, n}
 }
 
-func (m *Base) InitBase(model interface{}) {
+func (base *Base) InitBase(model interface{}) {
 	SetBase(model, NewBase(model))
 }
-func (m *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {
-	if conf, ok := m.ones[name]; ok {
+
+func (base *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {
+	if conf, ok := base.ones[name]; ok {
 		one = conf.target
 		n = conf.n
 		has = true
@@ -120,8 +121,8 @@ func (m *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {
 	return
 }
 
-func (m *Base) HasMany(name string) (many interface{}, n Nexus, has bool) {
-	if conf, ok := m.manys[name]; ok {
+func (base *Base) HasMany(name string) (many interface{}, n Nexus, has bool) {
+	if conf, ok := base.manys[name]; ok {
 		many = conf.target
 		n = conf.n
 		has = true
@@ -131,23 +132,23 @@ func (m *Base) HasMany(name string) (many interface{}, n Nexus, has bool) {
 	return
 }
 
-func (m *Base) Mapper() *ModelMapper {
-	return m.mapper
+func (base *Base) Mapper() *ModelMapper {
+	return base.mapper
 }
 
-func (m *Base) SetOne(name string, model interface{}) {
-	m.onesValue[name] = model
+func (base *Base) SetOne(name string, model interface{}) {
+	base.onesValue[name] = model
 }
 
-func (m *Base) SetMany(name string, models map[interface{}]interface{}) {
-	m.manysValue[name] = models
+func (base *Base) SetMany(name string, models map[interface{}]interface{}) {
+	base.manysValue[name] = models
 }
 
-func (m *Base) findOne(name string) (result interface{}, err error) {
+func (base *Base) findOne(name string) (result interface{}, err error) {
 	var one interface{}
 	var n Nexus
 	var has bool
-	if one, n, has = m.HasOne(name); !has {
+	if one, n, has = base.HasOne(name); !has {
 		return
 	}
 	var repo *Repo
@@ -155,7 +156,7 @@ func (m *Base) findOne(name string) (result interface{}, err error) {
 		return
 	}
 	for af, bf := range n {
-		value, err := m.fieldValue(af)
+		value, err := base.fieldValue(af)
 		if err != nil {
 			return result, err
 		}
@@ -166,11 +167,11 @@ func (m *Base) findOne(name string) (result interface{}, err error) {
 	return
 }
 
-func (m *Base) findMany(name string) (result map[interface{}]interface{}, err error) {
+func (base *Base) findMany(name string) (result map[interface{}]interface{}, err error) {
 	var many interface{}
 	var rel map[string]string
 	var has bool
-	if many, rel, has = m.HasMany(name); !has {
+	if many, rel, has = base.HasMany(name); !has {
 		return
 	}
 	var repo *Repo
@@ -178,7 +179,7 @@ func (m *Base) findMany(name string) (result map[interface{}]interface{}, err er
 		return
 	}
 	for af, bf := range rel {
-		value, err := m.fieldValue(af)
+		value, err := base.fieldValue(af)
 		if err != nil {
 			return result, err
 		}
@@ -325,6 +326,7 @@ func SetBase(model interface{}, base *Base) {
 		field := value.Field(i)
 		if field.Type().Name() == "" {
 			field.Set(reflect.ValueOf(base))
+			break
 		}
 	}
 }
