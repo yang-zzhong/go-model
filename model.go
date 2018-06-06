@@ -60,7 +60,7 @@ type Base struct {
 	manys      map[string]relationship                // has many relationship
 	onesValue  map[string]interface{}                 // fetched result of has one relationship
 	manysValue map[string]map[interface{}]interface{} // fetched result of has many relationship
-	oncreate   modify
+	oncreate   modify                                 // declare in model_repo.go
 	onupdate   modify
 	ondelete   modify
 }
@@ -80,11 +80,6 @@ func NewBase(m interface{}) *Base {
 	return base
 }
 
-func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
-	one.(BaseI).InitBase(one)
-	m.ones[name] = relationship{one, n}
-}
-
 func (base *Base) OnCreate(m modify) {
 	base.oncreate = m
 }
@@ -99,6 +94,11 @@ func (base *Base) OnDelete(m modify) {
 
 func (base *Base) SetFresh(fresh bool) {
 	base.fresh = fresh
+}
+
+func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
+	one.(BaseI).InitBase(one)
+	m.ones[name] = relationship{one, n}
 }
 
 func (base *Base) DeclareMany(name string, many interface{}, n Nexus) {
