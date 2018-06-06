@@ -283,9 +283,10 @@ func (mm *ModelMapper) Pack(columns []string, cols []interface{}, key string) (m
 			id = value.Interface()
 		}
 	}
-	model = NewModel(v.Addr().Interface())
+	model = v.Addr().Interface()
 	if base, ok := GetBase(mm.model); ok {
 		SetBase(model, base)
+		model.(BaseI).SetFresh(false)
 	}
 	return
 }

@@ -1,5 +1,9 @@
 package model
 
+import (
+	"errors"
+)
+
 // a mid process needed struct see nexusValues
 type fornexus struct {
 	m     interface{}
@@ -30,19 +34,24 @@ func (fn fornexus) append(field string, val interface{}) {
 func (repo *Repo) With(name string) *Repo {
 	if m, n, ok := repo.model.(NexusOne).HasOne(name); ok {
 		repo.withs = append(repo.withs, with{name, m, n, t_one})
-	}
-	if m, n, ok := repo.model.(NexusMany).HasMany(name); ok {
+	} else if m, n, ok := repo.model.(NexusMany).HasMany(name); ok {
 		repo.withs = append(repo.withs, with{name, m, n, t_many})
+	} else {
+		repo.withs = append(repo.withs, with{name, nil, make(map[string]string), t_bad})
 	}
 	return repo
 }
 
 // nexusValues fetch all nexus result according the repo fetch result
-func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult {
+func (repo *Repo) nexusValues(models map[interface{}]interface{}) (result []nexusResult, err error) {
 	// find each nexus's query where and model
 	mid := make(map[string]fornexus)
 	for _, m := range models {
 		for _, w := range repo.withs {
+			if w.t == t_bad {
+				err = errors.New("relationship " + w.name + " not exists")
+				return
+			}
 			if _, ok := mid[w.name]; !ok {
 				mid[w.name] = fornexus{
 					w.m,
@@ -57,18 +66,20 @@ func (repo *Repo) nexusValues(models map[interface{}]interface{}) []nexusResult 
 		}
 	}
 	// fetch nexus result according to mid
-	result := []nexusResult{}
 	for name, fn := range mid {
 		r, _ := NewRepo(fn.m)
 		for field, val := range fn.where {
 			r.WhereIn(field, val)
 		}
-		if data, err := r.Fetch(); err == nil {
+		if data, perr := r.Fetch(); perr == nil {
 			result = append(result, nexusResult{name, fn.m, fn.n, fn.t, data})
+		} else {
+			err = perr
+			return
 		}
 	}
 
-	return result
+	return
 }
 
 //

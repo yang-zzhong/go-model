@@ -11,6 +11,7 @@ type Nexus map[string]string
 type Model interface {
 	TableName() string // table name in database
 	PK() string        // primary key for the table
+	Save() error       // save to db
 }
 
 // a has one nexus
@@ -38,6 +39,7 @@ type ValueConverter interface {
 }
 
 type BaseI interface {
+	SetFresh(fresh bool)
 	InitBase(m interface{})
 }
 
@@ -50,6 +52,7 @@ type relationship struct {
 // base model struct
 type Base struct {
 	mapper     *ModelMapper
+	fresh      bool
 	ones       map[string]relationship                // has one relationship
 	manys      map[string]relationship                // has many relationship
 	onesValue  map[string]interface{}                 // fetched result of has one relationship
@@ -59,6 +62,7 @@ type Base struct {
 // new a base model
 func NewBase(m interface{}) *Base {
 	base := new(Base)
+	base.fresh = true
 	base.mapper = NewModelMapper(m)
 	base.ones = make(map[string]relationship)
 	base.manys = make(map[string]relationship)
@@ -70,6 +74,10 @@ func NewBase(m interface{}) *Base {
 func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
 	one.(BaseI).InitBase(one)
 	m.ones[name] = relationship{one, n}
+}
+
+func (m *Base) SetFresh(fresh bool) {
+	m.fresh = fresh
 }
 
 func (m *Base) DeclareMany(name string, many interface{}, n Nexus) {
@@ -236,6 +244,13 @@ func (base *Base) Delete() error {
 	}
 }
 
+func (base *Base) Save() error {
+	if base.fresh {
+		return base.Create()
+	}
+	return base.Update()
+}
+
 func (base *Base) Fill(data map[string]interface{}) {
 	var fd *fieldDescriptor
 	var ok bool
@@ -270,7 +285,7 @@ func GetBase(model interface{}) (*Base, bool) {
 	value := reflect.ValueOf(model).Elem()
 	for i := 0; i < value.NumField(); i++ {
 		field := value.Field(i)
-		if field.Type().Name() == "" {
+		if field.Type().Name() == "" && !field.IsNil() {
 			return field.Interface().(*Base), true
 		}
 	}

@@ -26,6 +26,7 @@ var (
 const (
 	t_one  = 1 // relationship is a has one relationship
 	t_many = 2 // relationship is a has many relationship
+	t_bad  = 3 // bad or not found relationship
 )
 
 // a relationship with repo
@@ -50,6 +51,7 @@ type Repo struct {
 	modifier Modifier    // sql modifier
 	oncreate modify      // on create callback
 	onupdate modify      // on update callback
+	ondelete modify      // on delete callback
 	withs    []with      // maintain fetch model relationship
 	tx       *sql.Tx     // tx
 	*Builder
@@ -89,6 +91,12 @@ func (repo *Repo) OnCreate(c modify) *Repo {
 // set on update callback
 func (repo *Repo) OnUpdate(c modify) *Repo {
 	repo.onupdate = c
+	return repo
+}
+
+// set on update callback
+func (repo *Repo) OnDelete(c modify) *Repo {
+	repo.ondelete = c
 	return repo
 }
 
@@ -157,9 +165,12 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 	if err != nil {
 		return
 	}
-	nexusValues := repo.nexusValues(models)
-	for id, _ := range models {
-		repo.bindNexus(models[id], nexusValues)
+	if nexusValues, rerr := repo.nexusValues(models); rerr == nil {
+		for id, _ := range models {
+			repo.bindNexus(models[id], nexusValues)
+		}
+	} else {
+		err = rerr
 	}
 
 	return
@@ -193,42 +204,58 @@ func (repo *Repo) Find(id interface{}) (interface{}, error) {
 	return nil, nil
 }
 
-func (repo *Repo) UpdateRaw() error {
-	return nil
+func (repo *Repo) UpdateRaw(raw map[string]interface{}) error {
+	_, err := repo.exec(repo.ForUpdate(raw))
+	return err
 }
 
 func (repo *Repo) DeleteRaw() error {
-	return nil
+	_, err := repo.exec(repo.ForRemove())
+	return err
 }
 
 func (repo *Repo) Update(models interface{}) error {
-	var row map[string]interface{}
-	var err error
 	val := reflect.ValueOf(models)
 	for val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
+	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
+	field := repo.model.(Model).PK()
+	mm := repo.model.(Mapable).Mapper()
 	switch val.Kind() {
 	case reflect.Struct:
-		row = repo.model.(Mapable).Mapper().Extract(models)
-		repo.onupdate(models)
-		_, err = repo.exec(repo.ForUpdate(row))
-		return err
+		if v, err := mm.ColValue(models, field); err == nil {
+			repo.onupdate(models)
+			r.Where(field, v)
+			return r.UpdateRaw(mm.Extract(models))
+		} else {
+			return err
+		}
 	case reflect.Slice:
 		slice := models.([]interface{})
 		for _, m := range slice {
-			row = repo.model.(Mapable).Mapper().Extract(m)
-			repo.onupdate(m)
-			_, err = repo.exec(repo.ForUpdate(row))
-			return err
+			if v, err := mm.ColValue(m, field); err == nil {
+				repo.onupdate(m)
+				r.Where(field, v)
+				if err := r.UpdateRaw(mm.Extract(m)); err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
 	case reflect.Map:
 		maps := models.([]interface{})
 		for _, m := range maps {
-			row = repo.model.(Mapable).Mapper().Extract(m)
-			repo.onupdate(m)
-			_, err = repo.exec(repo.ForUpdate(row))
-			return err
+			if v, err := mm.ColValue(m, field); err == nil {
+				repo.onupdate(m)
+				r.Where(field, v)
+				if err := r.UpdateRaw(mm.Extract(m)); err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
 		}
 	}
 	return nil
@@ -258,12 +285,56 @@ func (repo *Repo) Create(models interface{}) error {
 			data = append(data, repo.model.(Mapable).Mapper().Extract(m))
 		}
 	}
-	_, err = repo.exec(repo.ForInsert(data))
+	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
+	_, err = r.exec(r.ForInsert(data))
 
 	return err
 }
 
 func (repo *Repo) Delete(models interface{}) error {
+	val := reflect.ValueOf(models)
+	for val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
+	field := r.model.(Model).PK()
+	ins := []interface{}{}
+	mm := r.model.(Mapable).Mapper()
+	switch val.Kind() {
+	case reflect.Struct:
+		repo.ondelete(val.Interface())
+		if v, err := mm.ColValue(models, field); err == nil {
+			r.Where(field, v)
+			return r.DeleteRaw()
+		} else {
+			return err
+		}
+	case reflect.Slice:
+		slice := val.Interface().([]interface{})
+		for _, m := range slice {
+			repo.ondelete(m)
+			if v, err := mm.ColValue(m, field); err == nil {
+				ins = append(ins, v)
+			} else {
+				return err
+			}
+		}
+	case reflect.Map:
+		maps := val.Interface().([]interface{})
+		for _, m := range maps {
+			repo.ondelete(m)
+			if v, err := mm.ColValue(m, field); err == nil {
+				ins = append(ins, v)
+			} else {
+				return err
+			}
+		}
+	}
+	if len(ins) > 0 {
+		r.WhereIn(field, ins)
+		return r.DeleteRaw()
+	}
+
 	return nil
 }
 

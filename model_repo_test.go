@@ -23,19 +23,8 @@ type User struct {
 	*Base
 }
 
-type Book struct {
-	Id     string `db:"id varchar(128) pk"`
-	UserId string `db:"user_id varchar(128)"`
-	Name   string `db:"name varchar(128)"`
-	*Base
-}
-
 func (u *User) TableName() string {
 	return "user"
-}
-
-func (b *Book) TableName() string {
-	return "book"
 }
 
 func NewUser() *User {
@@ -44,6 +33,17 @@ func NewUser() *User {
 		"id": "user_id",
 	})
 	return user
+}
+
+type Book struct {
+	Id     string `db:"id varchar(128) pk"`
+	UserId string `db:"user_id varchar(128)"`
+	Name   string `db:"name varchar(128)"`
+	*Base
+}
+
+func (b *Book) TableName() string {
+	return "book"
 }
 
 func NewBook() *Book {
