@@ -71,14 +71,96 @@ func TestFill(t *T) {
 	}, t, "fill")
 }
 
+func TestCreate(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		if err := insertUser(user); err != nil {
+			return err
+		}
+		return nil
+	}, t, "create")
+}
+
+func TestCreateSlice(t *T) {
+	suit(func(t *T) error {
+		var err error
+		var repo *Repo
+		user := NewUser()
+		if err = insertUser(user); err != nil {
+			return err
+		}
+		books := []map[string]interface{}{
+			{
+				"id":           "1",
+				"name":         "1",
+				"published_at": time.Now(),
+				"user_id":      user.Id,
+			},
+			{
+				"id":           "2",
+				"name":         "2",
+				"published_at": time.Now(),
+				"user_id":      user.Id,
+			},
+		}
+		data := []interface{}{}
+		for _, b := range books {
+			item := NewBook()
+			item.Fill(b)
+			data = append(data, item)
+		}
+		book := NewBook()
+		if repo, err = book.Repo(); err != nil {
+			return nil
+		}
+		return repo.Create(data)
+
+	}, t, "create slice")
+}
+
+func TestCreateMap(t *T) {
+	suit(func(t *T) error {
+		var err error
+		var repo *Repo
+		user := NewUser()
+		if err = insertUser(user); err != nil {
+			return err
+		}
+		books := []map[string]interface{}{
+			{
+				"id":           "1",
+				"name":         "1",
+				"published_at": time.Now(),
+				"user_id":      user.Id,
+			},
+			{
+				"id":           "2",
+				"name":         "2",
+				"published_at": time.Now(),
+				"user_id":      user.Id,
+			},
+		}
+		data := make(map[interface{}]interface{})
+		for _, b := range books {
+			item := NewBook()
+			item.Fill(b)
+			data[b["id"]] = item
+		}
+		book := NewBook()
+		if repo, err = book.Repo(); err != nil {
+			return nil
+		}
+		return repo.Create(data)
+
+	}, t, "create map")
+}
+
 func TestUpdate(t *T) {
 	suit(func(t *T) error {
 		var err error
 		user := NewUser()
 		var repo *Repo
-		if err = insertUser(user); err != nil {
-			return err
-		}
+		insertUser(user)
 		user.Name = "fixed name"
 		if err = user.Save(); err != nil {
 			return err
@@ -97,22 +179,13 @@ func TestUpdate(t *T) {
 
 func TestFetchNexus(t *T) {
 	suit(func(t *T) error {
-		var err error
 		var ur, br *Repo
 		user := NewUser()
 		book := NewBook()
-		if err = insertUser(user); err != nil {
-			return err
-		}
-		if err := insertBook(book); err != nil {
-			return err
-		}
-		if ur, err = user.Repo(); err != nil {
-			return err
-		}
-		if br, err = book.Repo(); err != nil {
-			return err
-		}
+		insertUser(user)
+		insertBook(book)
+		ur, _ = user.Repo()
+		br, _ = book.Repo()
 		if users, err := ur.With("books").Fetch(); err != nil {
 			return err
 		} else {
@@ -147,15 +220,10 @@ func TestFetchNexus(t *T) {
 
 func TestWithMany(t *T) {
 	suit(func(t *T) error {
-		var err error
 		user := NewUser()
 		book := NewBook()
-		if err = insertUser(user); err != nil {
-			return err
-		}
-		if err := insertBook(book); err != nil {
-			return err
-		}
+		insertUser(user)
+		insertBook(book)
 		if many, err := user.Many("books"); err != nil {
 			return err
 		} else {
@@ -171,15 +239,10 @@ func TestWithMany(t *T) {
 
 func TestWithOne(t *T) {
 	suit(func(t *T) error {
-		var err error
 		user := NewUser()
 		book := NewBook()
-		if err = insertUser(user); err != nil {
-			return err
-		}
-		if err = insertBook(book); err != nil {
-			return err
-		}
+		insertUser(user)
+		insertBook(book)
 		if one, err := book.One("author"); err != nil {
 			return err
 		} else if !isUser(one) {
@@ -189,25 +252,13 @@ func TestWithOne(t *T) {
 	}, t, "with one")
 }
 
-func TestCreate(t *T) {
-	suit(func(t *T) error {
-		user := NewUser()
-		if err := insertUser(user); err != nil {
-			return err
-		}
-		return nil
-	}, t, "create")
-}
-
 func TestFetch(t *T) {
 	suit(func(t *T) error {
 		var repo *Repo
 		var err error
 		user := NewUser()
+		insertUser(user)
 		if repo, err = user.Repo(); err != nil {
-			return err
-		}
-		if err := insertUser(user); err != nil {
 			return err
 		}
 		if rows, err := repo.Fetch(); err != nil {
@@ -228,10 +279,8 @@ func TestFind(t *T) {
 		var repo *Repo
 		var err error
 		user := NewUser()
+		insertUser(user)
 		if repo, err = user.Repo(); err != nil {
-			return err
-		}
-		if err := insertUser(user); err != nil {
 			return err
 		}
 		if model, err := repo.Find("1"); err != nil {

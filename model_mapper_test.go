@@ -26,7 +26,7 @@ func (u *TestUser) TableName() string {
 }
 
 func TestCols(t *T) {
-	mm := NewModelMapper(new(TestUser))
+	mm := NewModelMapper(NewModel(new(TestUser)))
 	_, err := mm.cols([]string{"id", "name", "age", "level", "optional", "created_at", "updated_at"})
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +34,7 @@ func TestCols(t *T) {
 }
 
 func TestPack(t *T) {
-	mm := NewModelMapper(new(TestUser))
+	mm := NewModelMapper(NewModel(new(TestUser)))
 	cols := []string{"id", "name", "age", "level", "optional", "created_at", "updated_at"}
 	id := "1"
 	name := "yang-zhong"

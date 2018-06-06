@@ -9,9 +9,12 @@ import (
 type Nexus map[string]string
 
 type Model interface {
-	TableName() string // table name in database
-	PK() string        // primary key for the table
-	Save() error       // save to db
+	TableName() string                     // table name in database
+	PK() string                            // primary key for the table
+	Save() error                           // save to db
+	Fill(data map[string]interface{})      // fill values
+	Set(name string, val interface{}) bool // set col value
+	Get(name string) interface{}           // set col value
 }
 
 // a has one nexus
@@ -57,12 +60,18 @@ type Base struct {
 	manys      map[string]relationship                // has many relationship
 	onesValue  map[string]interface{}                 // fetched result of has one relationship
 	manysValue map[string]map[interface{}]interface{} // fetched result of has many relationship
+	oncreate   modify
+	onupdate   modify
+	ondelete   modify
 }
 
 // new a base model
 func NewBase(m interface{}) *Base {
 	base := new(Base)
 	base.fresh = true
+	base.oncreate = func(_ interface{}) {}
+	base.onupdate = func(_ interface{}) {}
+	base.ondelete = func(_ interface{}) {}
 	base.mapper = NewModelMapper(m)
 	base.ones = make(map[string]relationship)
 	base.manys = make(map[string]relationship)
@@ -74,6 +83,18 @@ func NewBase(m interface{}) *Base {
 func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
 	one.(BaseI).InitBase(one)
 	m.ones[name] = relationship{one, n}
+}
+
+func (base *Base) OnCreate(m modify) {
+	base.oncreate = m
+}
+
+func (base *Base) OnUpdate(m modify) {
+	base.onupdate = m
+}
+
+func (base *Base) OnDelete(m modify) {
+	base.ondelete = m
 }
 
 func (m *Base) SetFresh(fresh bool) {
@@ -174,8 +195,15 @@ func (base *Base) fieldValue(field string) (value interface{}, err error) {
 	return
 }
 
-func (base *Base) Repo() (*Repo, error) {
-	return NewRepo(base.mapper.model)
+func (base *Base) Repo() (repo *Repo, err error) {
+	if repo, err = NewRepo(base.mapper.model); err != nil {
+		return
+	}
+	repo.OnCreate(base.oncreate)
+	repo.OnUpdate(base.onupdate)
+	repo.OnDelete(base.ondelete)
+
+	return
 }
 
 func (base *Base) One(name string) (one interface{}, err error) {
@@ -255,14 +283,26 @@ func (base *Base) Save() error {
 }
 
 func (base *Base) Fill(data map[string]interface{}) {
-	var fd *fieldDescriptor
-	var ok bool
 	for colname, val := range data {
-		if fd, ok = base.mapper.fd(colname); !ok {
-			continue
-		}
+		base.Set(colname, val)
+	}
+}
+
+func (base *Base) Set(colname string, val interface{}) bool {
+	if fd, ok := base.mapper.fd(colname); ok {
 		field := base.mapper.value.FieldByName(fd.fieldname)
 		field.Set(reflect.ValueOf(val))
+		return true
+	}
+
+	return false
+}
+
+func (base *Base) Get(colname string) interface{} {
+	if val, err := base.fieldValue(colname); err != nil {
+		return nil
+	} else {
+		return val
 	}
 }
 
