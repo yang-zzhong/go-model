@@ -233,8 +233,7 @@ func (base *Base) Create() error {
 
 func (base *Base) Update() error {
 	if repo, err := base.Repo(); err == nil {
-		err := repo.Update(base.mapper.model)
-		return err
+		return repo.Update(base.mapper.model)
 	} else {
 		return err
 	}
@@ -242,8 +241,7 @@ func (base *Base) Update() error {
 
 func (base *Base) Delete() error {
 	if repo, err := base.Repo(); err == nil {
-		err := repo.Delete(base.mapper.model)
-		return err
+		return repo.Delete(base.mapper.model)
 	} else {
 		return err
 	}
