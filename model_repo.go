@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
@@ -233,30 +234,42 @@ func (repo *Repo) Update(models interface{}) error {
 		}
 	case reflect.Slice:
 		slice := models.([]interface{})
-		for _, m := range slice {
-			if v, err := mm.ColValue(m, field); err == nil {
-				repo.onupdate(m)
-				r.Where(field, v)
-				if err := r.UpdateRaw(mm.Extract(m)); err != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		return r.Tx(func(tx *sql.Tx) error {
+			r.WithTx(tx)
+			for _, m := range slice {
+				if v, err := mm.ColValue(m, field); err == nil {
+					repo.onupdate(m)
+					r.Where(field, v)
+					if err := r.UpdateRaw(mm.Extract(m)); err != nil {
+						return err
+					}
+				} else {
 					return err
 				}
-			} else {
-				return err
 			}
-		}
+			return nil
+		}, ctx, nil)
 	case reflect.Map:
 		maps := models.([]interface{})
-		for _, m := range maps {
-			if v, err := mm.ColValue(m, field); err == nil {
-				repo.onupdate(m)
-				r.Where(field, v)
-				if err := r.UpdateRaw(mm.Extract(m)); err != nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		return r.Tx(func(tx *sql.Tx) error {
+			r.WithTx(tx)
+			for _, m := range maps {
+				if v, err := mm.ColValue(m, field); err == nil {
+					repo.onupdate(m)
+					r.Where(field, v)
+					if err := r.UpdateRaw(mm.Extract(m)); err != nil {
+						return err
+					}
+				} else {
 					return err
 				}
-			} else {
-				return err
 			}
-		}
+			return nil
+		}, ctx, nil)
 	}
 	return nil
 }
