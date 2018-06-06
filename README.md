@@ -61,7 +61,7 @@ user.Fill(map[string]interface{}{
     "account": "Mr_Bob",
     "birthday": time.Now(),
 })
-if err := user.Create(); err != nil {
+if err := user.Save(); err != nil {
     panic(err)
 }
 
@@ -70,7 +70,7 @@ book := NewBook()
 book.Name = "one two three"
 book.AuthorId = user.Id
 book.PublishedAt = time.Now()
-if err := book.Create(); err != nil {
+if err := book.Save(); err != nil {
     panic(err)
 }
 
