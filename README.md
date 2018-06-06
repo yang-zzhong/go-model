@@ -93,7 +93,7 @@ if m, err := user.One("author"); err != nil {
 }
 
 // fetch user with many book
-if models, err := user.Repo().WithMany("books").Fetch(); err != nil {
+if models, err := user.Repo().With("books").Fetch(); err != nil {
     panic(err)
 } else {
     for id, m := range models {
@@ -107,7 +107,7 @@ if models, err := user.Repo().WithMany("books").Fetch(); err != nil {
 }
 
 // fetch book with one author
-if models, err := book.Repo().WithOne("author").Fetch(); err != nil {
+if models, err := book.Repo().With("author").Fetch(); err != nil {
     panic(err)
 } else {
     for id, m := range models {
