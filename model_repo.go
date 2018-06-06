@@ -268,25 +268,34 @@ func (repo *Repo) Create(models interface{}) error {
 	for val.Kind() == reflect.Ptr {
 		val = val.Elem()
 	}
+	ms := []interface{}{}
 	switch val.Kind() {
 	case reflect.Struct:
-		repo.oncreate(val.Interface())
-		data = append(data, repo.model.(Mapable).Mapper().Extract(val.Interface()))
+		repo.oncreate(models)
+		data = append(data, repo.model.(Mapable).Mapper().Extract(models))
+		ms = append(ms, models)
 	case reflect.Slice:
 		slice := val.Interface().([]interface{})
 		for _, m := range slice {
 			repo.oncreate(m)
 			data = append(data, repo.model.(Mapable).Mapper().Extract(m))
+			ms = append(ms, m)
 		}
 	case reflect.Map:
 		maps := val.Interface().(map[interface{}]interface{})
 		for _, m := range maps {
 			repo.oncreate(m)
 			data = append(data, repo.model.(Mapable).Mapper().Extract(m))
+			ms = append(ms, m)
 		}
 	}
 	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
 	_, err = r.exec(r.ForInsert(data))
+	if err == nil {
+		for _, m := range ms {
+			m.(BaseI).SetFresh(false)
+		}
+	}
 
 	return err
 }
@@ -300,12 +309,13 @@ func (repo *Repo) Delete(models interface{}) error {
 	field := r.model.(Model).PK()
 	ins := []interface{}{}
 	mm := r.model.(Mapable).Mapper()
+	ms := []interface{}{}
 	switch val.Kind() {
 	case reflect.Struct:
 		repo.ondelete(val.Interface())
 		if v, err := mm.ColValue(models, field); err == nil {
-			r.Where(field, v)
-			return r.DeleteRaw()
+			ins = append(ins, v)
+			ms = append(ms, models)
 		} else {
 			return err
 		}
@@ -315,6 +325,7 @@ func (repo *Repo) Delete(models interface{}) error {
 			repo.ondelete(m)
 			if v, err := mm.ColValue(m, field); err == nil {
 				ins = append(ins, v)
+				ms = append(ms, m)
 			} else {
 				return err
 			}
@@ -325,17 +336,24 @@ func (repo *Repo) Delete(models interface{}) error {
 			repo.ondelete(m)
 			if v, err := mm.ColValue(m, field); err == nil {
 				ins = append(ins, v)
+				ms = append(ms, m)
 			} else {
 				return err
 			}
 		}
 	}
-	if len(ins) > 0 {
-		r.WhereIn(field, ins)
-		return r.DeleteRaw()
+	if len(ins) == 0 {
+		return nil
+	}
+	r.WhereIn(field, ins)
+	err := r.DeleteRaw()
+	if err == nil {
+		for _, m := range ms {
+			m.(BaseI).SetFresh(true)
+		}
 	}
 
-	return nil
+	return err
 }
 
 func (repo *Repo) exec(sql string) (sql.Result, error) {

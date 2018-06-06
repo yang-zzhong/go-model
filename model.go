@@ -219,11 +219,16 @@ func (base *Base) Map() map[string]interface{} {
 }
 
 func (base *Base) Create() error {
-	if repo, err := base.Repo(); err == nil {
-		return repo.Create(base.mapper.model)
-	} else {
+	var err error
+	var repo *Repo
+	if repo, err = base.Repo(); err != nil {
 		return err
 	}
+	if err = repo.Create(base.mapper.model); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (base *Base) Update() error {

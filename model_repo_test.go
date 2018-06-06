@@ -71,6 +71,30 @@ func TestFill(t *T) {
 	}, t, "fill")
 }
 
+func TestUpdate(t *T) {
+	suit(func(t *T) error {
+		var err error
+		user := NewUser()
+		var repo *Repo
+		if err = insertUser(user); err != nil {
+			return err
+		}
+		user.Name = "fixed name"
+		if err = user.Save(); err != nil {
+			return err
+		}
+		if repo, err = user.Repo(); err != nil {
+			return err
+		}
+		if u, err := repo.Find("1"); err != nil {
+			if u.(*User).Name != "fixed name" {
+				return errors.New("save error")
+			}
+		}
+		return nil
+	}, t, "update")
+}
+
 func TestFetchNexus(t *T) {
 	suit(func(t *T) error {
 		var err error
