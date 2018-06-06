@@ -195,15 +195,15 @@ func (base *Base) fieldValue(field string) (value interface{}, err error) {
 	return
 }
 
-func (base *Base) Repo() (repo *Repo, err error) {
-	if repo, err = NewRepo(base.mapper.model); err != nil {
-		return
+func (base *Base) Repo() *Repo {
+	if repo, err := NewRepo(base.mapper.model); err == nil {
+		repo.OnCreate(base.oncreate)
+		repo.OnUpdate(base.onupdate)
+		repo.OnDelete(base.ondelete)
+		return repo
+	} else {
+		panic(err)
 	}
-	repo.OnCreate(base.oncreate)
-	repo.OnUpdate(base.onupdate)
-	repo.OnDelete(base.ondelete)
-
-	return
 }
 
 func (base *Base) One(name string) (one interface{}, err error) {
@@ -247,32 +247,15 @@ func (base *Base) Map() map[string]interface{} {
 }
 
 func (base *Base) Create() error {
-	var err error
-	var repo *Repo
-	if repo, err = base.Repo(); err != nil {
-		return err
-	}
-	if err = repo.Create(base.mapper.model); err != nil {
-		return err
-	}
-
-	return nil
+	return base.Repo().Create(base.mapper.model)
 }
 
 func (base *Base) Update() error {
-	if repo, err := base.Repo(); err == nil {
-		return repo.Update(base.mapper.model)
-	} else {
-		return err
-	}
+	return base.Repo().Update(base.mapper.model)
 }
 
 func (base *Base) Delete() error {
-	if repo, err := base.Repo(); err == nil {
-		return repo.Delete(base.mapper.model)
-	} else {
-		return err
-	}
+	return base.Repo().Delete(base.mapper.model)
 }
 
 func (base *Base) Save() error {

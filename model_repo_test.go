@@ -84,7 +84,6 @@ func TestCreate(t *T) {
 func TestCreateSlice(t *T) {
 	suit(func(t *T) error {
 		var err error
-		var repo *Repo
 		user := NewUser()
 		if err = insertUser(user); err != nil {
 			return err
@@ -109,11 +108,7 @@ func TestCreateSlice(t *T) {
 			item.Fill(b)
 			data = append(data, item)
 		}
-		book := NewBook()
-		if repo, err = book.Repo(); err != nil {
-			return nil
-		}
-		return repo.Create(data)
+		return NewBook().Repo().Create(data)
 
 	}, t, "create slice")
 }
@@ -121,7 +116,6 @@ func TestCreateSlice(t *T) {
 func TestCreateMap(t *T) {
 	suit(func(t *T) error {
 		var err error
-		var repo *Repo
 		user := NewUser()
 		if err = insertUser(user); err != nil {
 			return err
@@ -146,11 +140,7 @@ func TestCreateMap(t *T) {
 			item.Fill(b)
 			data[b["id"]] = item
 		}
-		book := NewBook()
-		if repo, err = book.Repo(); err != nil {
-			return nil
-		}
-		return repo.Create(data)
+		return NewBook().Repo().Create(data)
 
 	}, t, "create map")
 }
@@ -159,16 +149,12 @@ func TestUpdate(t *T) {
 	suit(func(t *T) error {
 		var err error
 		user := NewUser()
-		var repo *Repo
 		insertUser(user)
 		user.Name = "fixed name"
 		if err = user.Save(); err != nil {
 			return err
 		}
-		if repo, err = user.Repo(); err != nil {
-			return err
-		}
-		if u, err := repo.Find("1"); err != nil {
+		if u, err := user.Repo().Find("1"); err != nil {
 			if u.(*User).Name != "fixed name" {
 				return errors.New("save error")
 			}
@@ -179,14 +165,11 @@ func TestUpdate(t *T) {
 
 func TestFetchNexus(t *T) {
 	suit(func(t *T) error {
-		var ur, br *Repo
 		user := NewUser()
 		book := NewBook()
 		insertUser(user)
 		insertBook(book)
-		ur, _ = user.Repo()
-		br, _ = book.Repo()
-		if users, err := ur.With("books").Fetch(); err != nil {
+		if users, err := user.Repo().With("books").Fetch(); err != nil {
 			return err
 		} else {
 			for _, user := range users {
@@ -201,7 +184,7 @@ func TestFetchNexus(t *T) {
 				}
 			}
 		}
-		if books, err := br.With("author").Fetch(); err != nil {
+		if books, err := book.Repo().With("author").Fetch(); err != nil {
 			return err
 		} else {
 			for _, book := range books {
@@ -254,14 +237,9 @@ func TestWithOne(t *T) {
 
 func TestFetch(t *T) {
 	suit(func(t *T) error {
-		var repo *Repo
-		var err error
 		user := NewUser()
 		insertUser(user)
-		if repo, err = user.Repo(); err != nil {
-			return err
-		}
-		if rows, err := repo.Fetch(); err != nil {
+		if rows, err := user.Repo().Fetch(); err != nil {
 			return err
 		} else {
 			for _, row := range rows {
@@ -276,14 +254,9 @@ func TestFetch(t *T) {
 
 func TestFind(t *T) {
 	suit(func(t *T) error {
-		var repo *Repo
-		var err error
 		user := NewUser()
 		insertUser(user)
-		if repo, err = user.Repo(); err != nil {
-			return err
-		}
-		if model, err := repo.Find("1"); err != nil {
+		if model, err := user.Repo().Find("1"); err != nil {
 			return err
 		} else {
 			if !isUser(model) {
@@ -324,11 +297,8 @@ func insertBook(book *Book) error {
 }
 
 func createUserRepo() *Repo {
-	var repo *Repo
+	repo := NewUser().Repo()
 	var err error
-	if repo, err = NewUser().Repo(); err != nil {
-		panic(err)
-	}
 	if err = repo.CreateRepo(); err != nil {
 		panic(err)
 	}
@@ -336,11 +306,8 @@ func createUserRepo() *Repo {
 }
 
 func createBookRepo() *Repo {
-	var repo *Repo
+	repo := NewBook().Repo()
 	var err error
-	if repo, err = NewBook().Repo(); err != nil {
-		panic(err)
-	}
 	if err = repo.CreateRepo(); err != nil {
 		panic(err)
 	}
@@ -421,7 +388,7 @@ func suit(handle handler, t *T, name string) {
 	clearRepo(ur)
 	clearRepo(br)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%v:\t%v", name, err)
 	}
-	log.Print(name + ": OK ^_^")
+	log.Printf("%v\t\tOK", name)
 }
