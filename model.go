@@ -332,7 +332,7 @@ func GetBase(model interface{}) (*Base, bool) {
 	value := reflect.ValueOf(model).Elem()
 	for i := 0; i < value.NumField(); i++ {
 		field := value.Field(i)
-		if field.Type().Name() == "" && !field.IsNil() {
+		if field.Type().String() == "*model.Base" && !field.IsNil() {
 			return field.Interface().(*Base), true
 		}
 	}
@@ -344,7 +344,7 @@ func SetBase(model interface{}, base *Base) {
 	value := reflect.ValueOf(model).Elem()
 	for i := 0; i < value.NumField(); i++ {
 		field := value.Field(i)
-		if field.Type().Name() == "" {
+		if field.Type().String() == "*model.Base" {
 			field.Set(reflect.ValueOf(base))
 			break
 		}
