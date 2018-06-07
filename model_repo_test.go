@@ -154,10 +154,14 @@ func TestUpdate(t *T) {
 		if err = user.Save(); err != nil {
 			return err
 		}
-		if u, err := user.Repo().Find("1"); err != nil {
+		if u, ok, err := user.Repo().Find("1"); err != nil {
+			return err
+		} else if ok {
 			if u.(*User).Name != "fixed name" {
 				return errors.New("save error")
 			}
+		} else {
+			return errors.New("save error")
 		}
 		return nil
 	}, t, "update")
@@ -256,12 +260,14 @@ func TestFind(t *T) {
 	suit(func(t *T) error {
 		user := NewUser()
 		insertUser(user)
-		if model, err := user.Repo().Find("1"); err != nil {
+		if model, ok, err := user.Repo().Find("1"); err != nil {
 			return err
-		} else {
+		} else if ok {
 			if !isUser(model) {
 				return errors.New("find error")
 			}
+		} else {
+			return errors.New("find error")
 		}
 		return nil
 	}, t, "find")

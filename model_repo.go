@@ -177,32 +177,30 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 	return
 }
 
-func (repo *Repo) One() (interface{}, error) {
-	var rows map[interface{}]interface{}
-	var err error
-	if rows, err = repo.Fetch(); err != nil {
-		return nil, err
-	}
-	for _, row := range rows {
-		return row, nil
+func (repo *Repo) One() (interface{}, bool, error) {
+	if rows, err := repo.Fetch(); err != nil {
+		return nil, false, err
+	} else {
+		for _, row := range rows {
+			return row, true, nil
+		}
 	}
 
-	return nil, nil
+	return nil, false, nil
 }
 
-func (repo *Repo) Find(id interface{}) (interface{}, error) {
-	var rows map[interface{}]interface{}
-	var err error
+func (repo *Repo) Find(id interface{}) (interface{}, bool, error) {
 	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
 	r.Where(repo.model.(Model).PK(), id).Limit(1)
-	if rows, err = r.Fetch(); err != nil {
-		return nil, err
-	}
-	for _, row := range rows {
-		return row, nil
+	if rows, err := r.Fetch(); err != nil {
+		return nil, false, err
+	} else {
+		for _, row := range rows {
+			return row, true, nil
+		}
 	}
 
-	return nil, nil
+	return nil, false, nil
 }
 
 func (repo *Repo) UpdateRaw(raw map[string]interface{}) error {

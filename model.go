@@ -163,7 +163,7 @@ func (base *Base) findOne(name string) (result interface{}, err error) {
 		}
 		repo.Where(bf, value)
 	}
-	result, err = repo.One()
+	result, _, err = repo.One()
 
 	return
 }
