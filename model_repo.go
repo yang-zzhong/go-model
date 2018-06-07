@@ -12,6 +12,7 @@ type rowshandler func(*sql.Rows, []string)
 
 // oncreate and onupdate callback type
 type modify func(model interface{})
+type setpage func(*Repo) error
 
 // connection struct
 type conn struct {
@@ -136,6 +137,17 @@ func (repo *Repo) Query(handle rowshandler) error {
 	}
 
 	return nil
+}
+
+func (repo *Repo) FetchPage(handle setpage) (models map[interface{}]interface{}, total int, err error) {
+	if total, err = repo.Count(); err != nil {
+		return
+	}
+	if err = handle(repo); err != nil {
+		return
+	}
+	models, err = repo.Fetch()
+	return
 }
 
 func (repo *Repo) Fetch() (models map[interface{}]interface{}, err error) {

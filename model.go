@@ -15,6 +15,9 @@ type Model interface {
 	Fill(data map[string]interface{})      // fill values
 	Set(name string, val interface{}) bool // set col value
 	Get(name string) interface{}           // set col value
+	OnCreate(handle modify)
+	OnUpdate(handle modify)
+	OnDelete(handle modify)
 }
 
 // a has one nexus
