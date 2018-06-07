@@ -56,6 +56,7 @@ type relationship struct {
 type Base struct {
 	mapper     *ModelMapper
 	fresh      bool
+	repo       *Repo
 	ones       map[string]relationship                // has one relationship
 	manys      map[string]relationship                // has many relationship
 	onesValue  map[string]interface{}                 // fetched result of has one relationship
@@ -197,14 +198,17 @@ func (base *Base) fieldValue(field string) (value interface{}, err error) {
 }
 
 func (base *Base) Repo() *Repo {
-	if repo, err := NewRepo(base.mapper.model); err == nil {
-		repo.OnCreate(base.oncreate)
-		repo.OnUpdate(base.onupdate)
-		repo.OnDelete(base.ondelete)
-		return repo
-	} else {
+	if base.repo != nil {
+		return base.repo
+	}
+	var err error
+	if base.repo, err = NewRepo(base.mapper.model); err != nil {
 		panic(err)
 	}
+	base.repo.OnCreate(base.oncreate)
+	base.repo.OnUpdate(base.onupdate)
+	base.repo.OnDelete(base.ondelete)
+	return base.repo
 }
 
 func (base *Base) One(name string) (one interface{}, err error) {
