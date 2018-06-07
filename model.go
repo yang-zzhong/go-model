@@ -14,7 +14,8 @@ type Model interface {
 	Save() error                           // save to db
 	Fill(data map[string]interface{})      // fill values
 	Set(name string, val interface{}) bool // set col value
-	Get(name string) interface{}           // set col value
+	Has(name string) bool
+	Get(name string) interface{} // set col value
 	OnCreate(handle modify)
 	OnUpdate(handle modify)
 	OnDelete(handle modify)
@@ -73,9 +74,9 @@ type Base struct {
 func NewBase(m interface{}) *Base {
 	base := new(Base)
 	base.fresh = true
-	base.oncreate = func(_ interface{}) {}
-	base.onupdate = func(_ interface{}) {}
-	base.ondelete = func(_ interface{}) {}
+	base.oncreate = func(_ Model) {}
+	base.onupdate = func(_ Model) {}
+	base.ondelete = func(_ Model) {}
 	base.mapper = NewModelMapper(m)
 	base.ones = make(map[string]relationship)
 	base.manys = make(map[string]relationship)
@@ -287,6 +288,18 @@ func (base *Base) Set(colname string, val interface{}) bool {
 	}
 
 	return false
+}
+
+func (base *Base) Has(colname string) bool {
+	has := false
+	base.mapper.each(func(fd *fieldDescriptor) bool {
+		if fd.colname == colname {
+			has = true
+			return false
+		}
+		return true
+	})
+	return has
 }
 
 func (base *Base) Get(colname string) interface{} {

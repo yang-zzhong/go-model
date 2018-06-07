@@ -11,7 +11,7 @@ import (
 type rowshandler func(*sql.Rows, []string)
 
 // oncreate and onupdate callback type
-type modify func(model interface{})
+type modify func(model Model)
 type setpage func(*Repo) error
 
 // connection struct
@@ -65,8 +65,9 @@ func NewCustomRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	repo.model = m
 	repo.conn = conn
 	repo.modifier = p
-	repo.oncreate = func(model interface{}) {}
-	repo.onupdate = func(model interface{}) {}
+	repo.oncreate = func(_ Model) {}
+	repo.onupdate = func(_ Model) {}
+	repo.ondelete = func(_ Model) {}
 	repo.Builder = NewBuilder(p)
 	repo.withs = []with{}
 	repo.From(repo.model.(Model).TableName())
@@ -236,7 +237,7 @@ func (repo *Repo) Update(models interface{}) error {
 	switch val.Kind() {
 	case reflect.Struct:
 		if v, err := mm.ColValue(models, field); err == nil {
-			repo.onupdate(models)
+			repo.onupdate(models.(Model))
 			r.Where(field, v)
 			return r.UpdateRaw(mm.Extract(models))
 		} else {
@@ -250,7 +251,7 @@ func (repo *Repo) Update(models interface{}) error {
 			r.WithTx(tx)
 			for _, m := range slice {
 				if v, err := mm.ColValue(m, field); err == nil {
-					repo.onupdate(m)
+					repo.onupdate(m.(Model))
 					r.Where(field, v)
 					if err := r.UpdateRaw(mm.Extract(m)); err != nil {
 						return err
@@ -269,7 +270,7 @@ func (repo *Repo) Update(models interface{}) error {
 			r.WithTx(tx)
 			for _, m := range maps {
 				if v, err := mm.ColValue(m, field); err == nil {
-					repo.onupdate(m)
+					repo.onupdate(m.(Model))
 					r.Where(field, v)
 					if err := r.UpdateRaw(mm.Extract(m)); err != nil {
 						return err
@@ -294,20 +295,20 @@ func (repo *Repo) Create(models interface{}) error {
 	ms := []interface{}{}
 	switch val.Kind() {
 	case reflect.Struct:
-		repo.oncreate(models)
+		repo.oncreate(models.(Model))
 		data = append(data, repo.model.(Mapable).Mapper().Extract(models))
 		ms = append(ms, models)
 	case reflect.Slice:
 		slice := val.Interface().([]interface{})
 		for _, m := range slice {
-			repo.oncreate(m)
+			repo.oncreate(m.(Model))
 			data = append(data, repo.model.(Mapable).Mapper().Extract(m))
 			ms = append(ms, m)
 		}
 	case reflect.Map:
 		maps := val.Interface().(map[interface{}]interface{})
 		for _, m := range maps {
-			repo.oncreate(m)
+			repo.oncreate(m.(Model))
 			data = append(data, repo.model.(Mapable).Mapper().Extract(m))
 			ms = append(ms, m)
 		}
@@ -335,7 +336,7 @@ func (repo *Repo) Delete(models interface{}) error {
 	ms := []interface{}{}
 	switch val.Kind() {
 	case reflect.Struct:
-		repo.ondelete(val.Interface())
+		repo.ondelete(models.(Model))
 		if v, err := mm.ColValue(models, field); err == nil {
 			ins = append(ins, v)
 			ms = append(ms, models)
@@ -345,7 +346,7 @@ func (repo *Repo) Delete(models interface{}) error {
 	case reflect.Slice:
 		slice := val.Interface().([]interface{})
 		for _, m := range slice {
-			repo.ondelete(m)
+			repo.ondelete(m.(Model))
 			if v, err := mm.ColValue(m, field); err == nil {
 				ins = append(ins, v)
 				ms = append(ms, m)
@@ -356,7 +357,7 @@ func (repo *Repo) Delete(models interface{}) error {
 	case reflect.Map:
 		maps := val.Interface().([]interface{})
 		for _, m := range maps {
-			repo.ondelete(m)
+			repo.ondelete(m.(Model))
 			if v, err := mm.ColValue(m, field); err == nil {
 				ins = append(ins, v)
 				ms = append(ms, m)
