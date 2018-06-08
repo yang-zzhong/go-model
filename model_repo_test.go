@@ -81,6 +81,43 @@ func TestCreate(t *T) {
 	}, t, "create")
 }
 
+func TestHas(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		if !user.Has("id") {
+			return errors.New("has error when had")
+		}
+		if user.Has("no") {
+			return errors.New("has error when not had")
+		}
+		return nil
+	}, t, "has")
+}
+
+func TestGet(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		user.Id = "100"
+		if user.Get("id").(string) != "100" {
+			return errors.New("get error")
+		}
+		return nil
+	}, t, "get")
+}
+
+func TestSet(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		if ok := user.Set("id", "100"); !ok {
+			return errors.New("set error")
+		}
+		if user.Get("id").(string) != "100" {
+			return errors.New("set error")
+		}
+		return nil
+	}, t, "set")
+}
+
 func TestCreateSlice(t *T) {
 	suit(func(t *T) error {
 		var err error
