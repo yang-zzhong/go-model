@@ -19,7 +19,7 @@ type User struct {
 	Age       int       `db:"age int"`
 	Level     int       `db:"level int"`
 	Optional  string    `db:"optional varchar(256) nil"`
-	CreatedAt time.Time `db:"created_at datetime"`
+	CreatedAt time.Time `db:"created_at datetime nil"`
 	*Base
 }
 
@@ -289,7 +289,6 @@ func insertUser(user *User) error {
 	user.Name = "yang-zhong"
 	user.Age = 17
 	user.Level = 1
-	user.CreatedAt = time.Now()
 
 	return user.Create()
 }

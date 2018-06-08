@@ -307,7 +307,16 @@ func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}
 			result[fd.colname] = converter.DBValue(fd.colname, value)
 			continue
 		}
-		result[fd.colname] = value
+		switch value.(type) {
+		case time.Time:
+			if value.(time.Time).IsZero() {
+				result[fd.colname] = nil
+			} else {
+				result[fd.colname] = value
+			}
+		default:
+			result[fd.colname] = value
+		}
 	}
 
 	return
