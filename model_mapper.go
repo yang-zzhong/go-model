@@ -143,7 +143,7 @@ func (mm *ModelMapper) cols(columns []string) (result []interface{}, err error) 
 	return
 }
 
-func (mm *ModelMapper) Pack(columns []string, cols []interface{}, key string) (model interface{}, id interface{}, err error) {
+func (mm *ModelMapper) pack(columns []string, cols []interface{}, key string) (model interface{}, id interface{}, err error) {
 	var fd *fieldDescriptor
 	var ok bool
 	var converter ValueConverter
@@ -297,7 +297,7 @@ func (mm *ModelMapper) Pack(columns []string, cols []interface{}, key string) (m
 	return
 }
 
-func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}) {
+func (mm *ModelMapper) extract(model interface{}) (result map[string]interface{}) {
 	result = make(map[string]interface{})
 	values := mm.modelValue(model)
 	for _, fd := range mm.fds {
@@ -322,7 +322,7 @@ func (mm *ModelMapper) Extract(model interface{}) (result map[string]interface{}
 	return
 }
 
-func (mm *ModelMapper) ColValue(model interface{}, colname string) (result interface{}, err error) {
+func (mm *ModelMapper) colValue(model interface{}, colname string) (result interface{}, err error) {
 	values := mm.modelValue(model)
 	if fd, ok := mm.fd(colname); ok {
 		result = values.FieldByName(fd.fieldname).Interface()
@@ -332,10 +332,10 @@ func (mm *ModelMapper) ColValue(model interface{}, colname string) (result inter
 	return
 }
 
-func (mm *ModelMapper) FieldValue(model interface{}, fieldname string) (result interface{}, err error) {
+func (mm *ModelMapper) fieldValue(model interface{}, fieldname string) (result interface{}, err error) {
 	colname := mm.field2col[fieldname]
 
-	return mm.ColValue(model, colname)
+	return mm.colValue(model, colname)
 }
 
 func (mm *ModelMapper) modelValue(model interface{}) reflect.Value {

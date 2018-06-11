@@ -196,7 +196,7 @@ func (base *Base) findMany(name string) (result map[interface{}]interface{}, err
 }
 
 func (base *Base) fieldValue(field string) (value interface{}, err error) {
-	value, err = base.mapper.ColValue(base.mapper.model, field)
+	value, err = base.mapper.colValue(base.mapper.model, field)
 
 	return
 }

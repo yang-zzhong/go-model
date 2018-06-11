@@ -45,7 +45,7 @@ func TestPack(t *T) {
 	updated_at := NullTime{time.Now(), false}
 	res := []interface{}{&id, &name, &age, &level, &optional, &created_at, &updated_at}
 
-	if _, _, err := mm.Pack(cols, res, new(TestUser).PK()); err != nil {
+	if _, _, err := mm.pack(cols, res, new(TestUser).PK()); err != nil {
 		t.Fatal(err)
 	}
 }

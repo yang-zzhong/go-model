@@ -394,7 +394,7 @@ func rightModel(m interface{}, vals map[string]interface{}) bool {
 		if _, ok := vals[fd.colname]; !ok {
 			return true
 		}
-		if val, err := m.(Mapable).Mapper().ColValue(m, fd.colname); err != nil {
+		if val, err := m.(Mapable).Mapper().colValue(m, fd.colname); err != nil {
 			result = false
 			return false
 		} else {
