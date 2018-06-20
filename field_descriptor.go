@@ -12,6 +12,7 @@ type fieldDescriptor struct {
 	fieldname string
 	colname   string
 	coltype   string
+	protected bool
 	nullable  bool
 	isuk      bool
 	ispk      bool
@@ -56,5 +57,6 @@ func (fd *fieldDescriptor) parse(src string) {
 		fd.ispk = helper.InStrArray(opt, "pk")
 		fd.isuk = helper.InStrArray(opt, "uk")
 		fd.isindex = helper.InStrArray(opt, "index")
+		fd.protected = helper.InStrArray(opt, "protected")
 	}
 }

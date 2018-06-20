@@ -248,7 +248,9 @@ func (base *Base) Map() map[string]interface{} {
 	mapper := base.Mapper()
 	values := mapper.modelValue(mapper.model)
 	mapper.each(func(fd *fieldDescriptor) bool {
-		result[fd.colname] = values.FieldByName(fd.fieldname).Interface()
+		if !fd.protected {
+			result[fd.colname] = values.FieldByName(fd.fieldname).Interface()
+		}
 		return true
 	})
 
@@ -276,12 +278,22 @@ func (base *Base) Save() error {
 
 func (base *Base) Fill(data map[string]interface{}) {
 	for colname, val := range data {
-		base.Set(colname, val)
+		if fd, ok := base.mapper.fd(colname); !ok {
+			continue
+		} else if fd.protected {
+			continue
+		} else {
+			field := base.mapper.value.FieldByName(fd.fieldname)
+			field.Set(reflect.ValueOf(val))
+		}
 	}
 }
 
 func (base *Base) Set(colname string, val interface{}) bool {
 	if fd, ok := base.mapper.fd(colname); ok {
+		if fd.protected {
+			return false
+		}
 		field := base.mapper.value.FieldByName(fd.fieldname)
 		field.Set(reflect.ValueOf(val))
 		return true

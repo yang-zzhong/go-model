@@ -393,17 +393,14 @@ func rightModel(m interface{}, vals map[string]interface{}) bool {
 	m.(Mapable).Mapper().each(func(fd *fieldDescriptor) bool {
 		if _, ok := vals[fd.colname]; !ok {
 			return true
-		}
-		if val, err := m.(Mapable).Mapper().colValue(m, fd.colname); err != nil {
+		} else if val, err := m.(Mapable).Mapper().colValue(m, fd.colname); err != nil {
 			result = false
-			return false
 		} else {
 			if val != vals[fd.colname] {
 				result = false
-				return false
 			}
 		}
-		return true
+		return result
 	})
 
 	return result
