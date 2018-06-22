@@ -227,6 +227,14 @@ func (base *Base) One(name string) (one interface{}, err error) {
 	return
 }
 
+func (base *Base) OneOrFail(name string) interface{} {
+	if one, err := base.One(name); err == nil {
+		return one
+	} else {
+		panic(err)
+	}
+}
+
 func (base *Base) Many(name string) (many map[interface{}]interface{}, err error) {
 	if v, ok := base.manysValue[name]; ok {
 		many = v
@@ -237,6 +245,14 @@ func (base *Base) Many(name string) (many map[interface{}]interface{}, err error
 	}
 	many = base.manysValue[name]
 	return
+}
+
+func (base *Base) ManyOrFail(name string) map[interface{}]interface{} {
+	if many, err := base.Many(name); err == nil {
+		return many
+	} else {
+		panic(err)
+	}
 }
 
 func (base *Base) MarshalJSON() ([]byte, error) {
