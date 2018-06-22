@@ -134,6 +134,9 @@ func (mm *ModelMapper) cols(columns []string) (result []interface{}, err error) 
 				pointers[i] = &value
 			case time.Time:
 				pointers[i] = new(time.Time)
+			case bool:
+				var value bool
+				pointers[i] = &value
 			default:
 				err = errors.New("unknown type of field " + colname)
 			}

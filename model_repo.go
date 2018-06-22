@@ -159,7 +159,7 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 	var cols []interface{}
 	models = make(map[interface{}]interface{})
 	colget := false
-	err = repo.Query(func(rows *sql.Rows, columns []string) {
+	qerr := repo.Query(func(rows *sql.Rows, columns []string) {
 		if !colget {
 			if cols, err = repo.model.(Mapable).Mapper().cols(columns); err != nil {
 				return
@@ -177,6 +177,10 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 		models[id] = m
 	})
 	if err != nil {
+		return
+	}
+	if qerr != nil {
+		err = qerr
 		return
 	}
 	if nexusValues, rerr := repo.nexusValues(models); rerr == nil {
