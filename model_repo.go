@@ -4,10 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
+	"log"
 	"reflect"
 )
 
 type rowshandler func(*sql.Rows, []string)
+type handlerForQueryModel func(m interface{}, pk interface{}) error
 
 // oncreate and onupdate callback type
 type modify func(model interface{}) error
@@ -21,10 +23,11 @@ const (
 
 // a relationship with repo
 type with struct {
-	name string      // relationship name
-	m    interface{} // relationship target
-	n    Nexus       // relationship nexus
-	t    int         // relationship type t_one|t_many
+	name    string      // relationship name
+	m       interface{} // relationship target
+	n       Nexus       // relationship nexus
+	t       int         // relationship type t_one|t_many
+	handler repoHandler
 }
 
 // repo
@@ -103,6 +106,7 @@ func (repo *Repo) Clean() {
 
 // count
 func (repo *Repo) Count() (int, error) {
+	log.Print(repo.ForCount())
 	rows, err := repo.conn.Query(repo.ForCount(), repo.Params()...)
 	if err != nil {
 		return 0, err
@@ -133,47 +137,12 @@ func (repo *Repo) Query(handle rowshandler) error {
 	return nil
 }
 
-func (repo *Repo) FetchPage(handle setpage) (models map[interface{}]interface{}, total int, err error) {
-	if total, err = repo.Count(); err != nil {
-		return
-	}
-	if err = handle(repo); err != nil {
-		return
-	}
-	models, err = repo.Fetch()
-	return
-}
-
-func (repo *Repo) Fetch() (models map[interface{}]interface{}, err error) {
-	return repo.FetchKey(repo.model.(Model).PK())
-}
-
-func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err error) {
-	var cols []interface{}
-	models = make(map[interface{}]interface{})
-	colget := false
-	qerr := repo.Query(func(rows *sql.Rows, columns []string) {
-		if !colget {
-			if cols, err = repo.model.(Mapable).Mapper().cols(columns); err != nil {
-				return
-			}
-			colget = true
-		}
-		if err = rows.Scan(cols...); err != nil {
-			return
-		}
-		var m, id interface{}
-		m, id, err = repo.model.(Mapable).Mapper().pack(columns, cols, col)
-		if err != nil {
-			return
-		}
-		models[id] = m
+func (repo *Repo) Fetch() (models []interface{}, err error) {
+	err = repo.fetch(func(m interface{}, _ interface{}) error {
+		models = append(models, m)
+		return nil
 	})
 	if err != nil {
-		return
-	}
-	if qerr != nil {
-		err = qerr
 		return
 	}
 	if nexusValues, rerr := repo.nexusValues(models); rerr == nil {
@@ -185,6 +154,53 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 	}
 
 	return
+}
+
+func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err error) {
+	models = make(map[interface{}]interface{})
+	forNexusValues := []interface{}{}
+	err = repo.fetch(func(m interface{}, id interface{}) error {
+		models[id] = m
+		forNexusValues = append(forNexusValues, m)
+		return nil
+	})
+	if err != nil {
+		return
+	}
+	if nexusValues, rerr := repo.nexusValues(forNexusValues); rerr == nil {
+		for id, _ := range models {
+			repo.bindNexus(models[id], nexusValues)
+		}
+	} else {
+		err = rerr
+	}
+
+	return
+}
+
+func (repo *Repo) fetch(handle handlerForQueryModel) (err error) {
+	var cols []interface{}
+	colget := false
+	err = repo.Query(func(rows *sql.Rows, columns []string) {
+		if !colget {
+			if cols, err = repo.model.(Mapable).Mapper().cols(columns); err != nil {
+				return
+			}
+			colget = true
+		}
+		if err = rows.Scan(cols...); err != nil {
+			return
+		}
+		var m, id interface{}
+		m, id, err = repo.model.(Mapable).Mapper().pack(columns, cols, repo.model.(Model).PK())
+		if err != nil {
+			return
+		}
+		err = handle(m, id)
+		return
+	})
+
+	return err
 }
 
 func (repo *Repo) One() (interface{}, bool, error) {

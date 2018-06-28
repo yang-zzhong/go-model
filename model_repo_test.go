@@ -54,6 +54,19 @@ func NewBook() *Book {
 	return book
 }
 
+type withCustomCount struct {
+	data []map[string]interface{}
+}
+
+func (wc *withCustomCount) DataOf(m interface{}, _ map[string]string) interface{} {
+	for _, item := range wc.data {
+		if m.(*User).Id == item["user_id"].(string) {
+			return item["number"]
+		}
+	}
+	return 0
+}
+
 func TestFill(t *T) {
 	suit(func(t *T) error {
 		user := NewUser()
@@ -214,11 +227,11 @@ func TestFetchNexus(t *T) {
 			return err
 		} else {
 			for _, user := range users {
-				var many map[interface{}]interface{}
+				var many interface{}
 				if many, err = user.(*User).Many("books"); err != nil {
 					return err
 				}
-				for _, m := range many {
+				for _, m := range many.(map[interface{}]interface{}) {
 					if !isBook(m) {
 						return err
 					}
@@ -251,7 +264,7 @@ func TestWithMany(t *T) {
 		if many, err := user.Many("books"); err != nil {
 			return err
 		} else {
-			for _, m := range many {
+			for _, m := range many.(map[interface{}]interface{}) {
 				if !isBook(m) {
 					return err
 				}
@@ -259,6 +272,47 @@ func TestWithMany(t *T) {
 		}
 		return nil
 	}, t, "with many")
+}
+
+func TestWithCustom(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		book := NewBook()
+		insertUser(user)
+		insertBook(book)
+		user.Repo().WithCustom("books", func(m interface{}) (val NexusValues, err error) {
+			repo := m.(Model).Repo()
+			repo.Select(E{"count(1) as number"}, "user_id")
+			repo.GroupBy("user_id")
+			data := []map[string]interface{}{}
+			repo.Query(func(rows *sql.Rows, _ []string) {
+				var number int
+				var user_id string
+				if err = rows.Scan(&number, &user_id); err != nil {
+					return
+				}
+				data = append(data, map[string]interface{}{
+					"number":  number,
+					"user_id": user_id,
+				})
+				return
+			})
+			val = &withCustomCount{data}
+			return
+		})
+		if ms, err := user.Repo().Fetch(); err != nil {
+			return err
+		} else {
+			for _, m := range ms {
+				if count, e := m.(*User).Many("books"); e != nil {
+					return e
+				} else if count != 1 {
+					t.Fatal("with custom count error")
+				}
+			}
+		}
+		return nil
+	}, t, "with custom")
 }
 
 func TestWithOne(t *T) {

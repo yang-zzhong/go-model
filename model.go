@@ -9,8 +9,9 @@ import (
 type Nexus map[string]string
 
 type Model interface {
-	TableName() string                     // table name in database
-	PK() string                            // primary key for the table
+	TableName() string // table name in database
+	PK() string        // primary key for the table
+	Repo() *Repo
 	Save() error                           // save to db
 	Fill(data map[string]interface{})      // fill values
 	Set(name string, val interface{}) bool // set col value
@@ -30,9 +31,9 @@ type NexusOne interface {
 
 // a has many nexus
 type NexusMany interface {
-	HasMany(name string) (interface{}, Nexus, bool)        // get a has many nexus from it's name
-	DeclareMany(name string, many interface{}, n Nexus)    // declare a has many relationship
-	SetMany(name string, many map[interface{}]interface{}) // set fetch result of has many relationship
+	HasMany(name string) (interface{}, Nexus, bool)     // get a has many nexus from it's name
+	DeclareMany(name string, many interface{}, n Nexus) // declare a has many relationship
+	SetMany(name string, many interface{})              // set fetch result of has many relationship
 }
 
 type Mapable interface {
@@ -61,11 +62,11 @@ type Base struct {
 	mapper     *ModelMapper
 	fresh      bool
 	repo       *Repo
-	ones       map[string]relationship                // has one relationship
-	manys      map[string]relationship                // has many relationship
-	onesValue  map[string]interface{}                 // fetched result of has one relationship
-	manysValue map[string]map[interface{}]interface{} // fetched result of has many relationship
-	oncreate   modify                                 // declare in model_repo.go
+	ones       map[string]relationship // has one relationship
+	manys      map[string]relationship // has many relationship
+	onesValue  map[string]interface{}  // fetched result of has one relationship
+	manysValue map[string]interface{}  // fetched result of has many relationship
+	oncreate   modify                  // declare in model_repo.go
 	onupdate   modify
 	ondelete   modify
 }
@@ -81,7 +82,7 @@ func NewBase(m interface{}) *Base {
 	base.ones = make(map[string]relationship)
 	base.manys = make(map[string]relationship)
 	base.onesValue = make(map[string]interface{})
-	base.manysValue = make(map[string]map[interface{}]interface{})
+	base.manysValue = make(map[string]interface{})
 	return base
 }
 
@@ -145,7 +146,7 @@ func (base *Base) SetOne(name string, model interface{}) {
 	base.onesValue[name] = model
 }
 
-func (base *Base) SetMany(name string, models map[interface{}]interface{}) {
+func (base *Base) SetMany(name string, models interface{}) {
 	base.manysValue[name] = models
 }
 
@@ -172,17 +173,14 @@ func (base *Base) findOne(name string) (result interface{}, err error) {
 	return
 }
 
-func (base *Base) findMany(name string) (result map[interface{}]interface{}, err error) {
+func (base *Base) findMany(name string) (result interface{}, err error) {
 	var many interface{}
 	var rel map[string]string
 	var has bool
 	if many, rel, has = base.HasMany(name); !has {
 		return
 	}
-	var repo *Repo
-	if repo, err = NewRepo(many); err != nil {
-		return
-	}
+	repo := many.(Model).Repo()
 	for af, bf := range rel {
 		value, err := base.fieldValue(af)
 		if err != nil {
@@ -190,7 +188,7 @@ func (base *Base) findMany(name string) (result map[interface{}]interface{}, err
 		}
 		repo.Where(bf, value)
 	}
-	result, err = repo.Fetch()
+	result, err = repo.FetchKey(many.(Model).PK())
 
 	return
 }
@@ -235,7 +233,7 @@ func (base *Base) OneOrFail(name string) interface{} {
 	}
 }
 
-func (base *Base) Many(name string) (many map[interface{}]interface{}, err error) {
+func (base *Base) Many(name string) (many interface{}, err error) {
 	if v, ok := base.manysValue[name]; ok {
 		many = v
 		return
@@ -247,7 +245,7 @@ func (base *Base) Many(name string) (many map[interface{}]interface{}, err error
 	return
 }
 
-func (base *Base) ManyOrFail(name string) map[interface{}]interface{} {
+func (base *Base) ManyOrFail(name string) interface{} {
 	if many, err := base.Many(name); err == nil {
 		return many
 	} else {
