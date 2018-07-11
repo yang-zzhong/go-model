@@ -62,7 +62,7 @@ func (repo *Repo) WithTx(tx *sql.Tx) *Repo {
 	return repo
 }
 
-func (repo *Repo) WithoutTx(tx *sql.Tx) *Repo {
+func (repo *Repo) WithoutTx() *Repo {
 	repo.tx = nil
 
 	return repo
