@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
@@ -13,17 +12,6 @@ type rowshandler func(*sql.Rows, []string)
 // oncreate and onupdate callback type
 type modify func(model Model)
 type setpage func(*Repo) error
-
-// connection struct
-type conn struct {
-	db *sql.DB
-	m  Modifier
-}
-
-var (
-	c      conn // Config set the conn as default conn
-	inited bool // if inited
-)
 
 const (
 	t_one  = 1 // relationship is a has one relationship
@@ -39,17 +27,10 @@ type with struct {
 	t    int         // relationship type t_one|t_many
 }
 
-// config the default connected db
-func Config(db *sql.DB, m Modifier) {
-	c.db = db
-	c.m = m
-	inited = true
-}
-
 // repo
 type Repo struct {
 	model    interface{} // repo row model
-	conn     *sql.DB     // conn
+	conn     *Connection // db
 	modifier Modifier    // sql modifier
 	oncreate modify      // on create callback
 	onupdate modify      // on update callback
@@ -60,7 +41,7 @@ type Repo struct {
 }
 
 // new custom repo
-func NewCustomRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
+func NewCustomRepo(m interface{}, conn *Connection, p Modifier) *Repo {
 	repo := new(Repo)
 	repo.model = m
 	repo.conn = conn
@@ -75,13 +56,25 @@ func NewCustomRepo(m interface{}, conn *sql.DB, p Modifier) *Repo {
 	return repo
 }
 
+func (repo *Repo) WithTx(tx *sql.Tx) *Repo {
+	repo.tx = tx
+
+	return repo
+}
+
+func (repo *Repo) WithoutTx(tx *sql.Tx) *Repo {
+	repo.tx = nil
+
+	return repo
+}
+
 // new default repo
 func NewRepo(m interface{}) (repo *Repo, err error) {
 	if !inited {
 		err = errors.New("not config the db and modifier yet")
 		return
 	}
-	repo = NewCustomRepo(m, c.db, c.m)
+	repo = NewCustomRepo(m, Conn, modifier)
 	return
 }
 
@@ -249,9 +242,7 @@ func (repo *Repo) Update(models interface{}) error {
 		}
 	case reflect.Slice:
 		slice := models.([]interface{})
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		return r.Tx(func(tx *sql.Tx) error {
+		return repo.conn.Tx(func(tx *sql.Tx) error {
 			r.WithTx(tx)
 			for _, m := range slice {
 				if v, err := mm.colValue(m, field); err == nil {
@@ -265,12 +256,10 @@ func (repo *Repo) Update(models interface{}) error {
 				}
 			}
 			return nil
-		}, ctx, nil)
+		}, nil, nil)
 	case reflect.Map:
 		maps := models.([]interface{})
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		return r.Tx(func(tx *sql.Tx) error {
+		return repo.conn.Tx(func(tx *sql.Tx) error {
 			r.WithTx(tx)
 			for _, m := range maps {
 				if v, err := mm.colValue(m, field); err == nil {
@@ -284,7 +273,7 @@ func (repo *Repo) Update(models interface{}) error {
 				}
 			}
 			return nil
-		}, ctx, nil)
+		}, nil, nil)
 	}
 	return nil
 }

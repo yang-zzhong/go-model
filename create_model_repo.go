@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"database/sql"
 	"strings"
 )
@@ -18,9 +17,7 @@ func (repo *Repo) DropRepo() error {
 // CreateRepo will create database table about the repo
 func (repo *Repo) CreateRepo() error {
 	sqlang, indexes := repo.forCreateTable()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return repo.Tx(func(tx *sql.Tx) error {
+	return Conn.Tx(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(sqlang); err != nil {
 			return err
 		}
@@ -30,7 +27,7 @@ func (repo *Repo) CreateRepo() error {
 			}
 		}
 		return nil
-	}, ctx, nil)
+	}, nil, nil)
 }
 
 // forCreateTable generate the create database table sql lang and create database index sql lang
@@ -56,5 +53,6 @@ func (repo *Repo) forCreateTable() (sqlang string, indexes []string) {
 		return true
 	})
 	sqlang += "(\n\t" + strings.Join(cols, ",\n\t") + "\n)"
+
 	return
 }
