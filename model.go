@@ -74,9 +74,9 @@ type Base struct {
 func NewBase(m interface{}) *Base {
 	base := new(Base)
 	base.fresh = true
-	base.oncreate = func(_ Model) {}
-	base.onupdate = func(_ Model) {}
-	base.ondelete = func(_ Model) {}
+	base.oncreate = func(_ interface{}) error { return nil }
+	base.onupdate = func(_ interface{}) error { return nil }
+	base.ondelete = func(_ interface{}) error { return nil }
 	base.mapper = NewModelMapper(m)
 	base.ones = make(map[string]relationship)
 	base.manys = make(map[string]relationship)
