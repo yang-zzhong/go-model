@@ -181,24 +181,28 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 func (repo *Repo) fetch(handle handlerForQueryModel) (err error) {
 	var cols []interface{}
 	colget := false
+	var perr error
 	err = repo.Query(func(rows *sql.Rows, columns []string) {
 		if !colget {
-			if cols, err = repo.model.(Mapable).Mapper().cols(columns); err != nil {
+			if cols, perr = repo.model.(Mapable).Mapper().cols(columns); perr != nil {
 				return
 			}
 			colget = true
 		}
-		if err = rows.Scan(cols...); err != nil {
+		if perr = rows.Scan(cols...); perr != nil {
 			return
 		}
 		var m, id interface{}
-		m, id, err = repo.model.(Mapable).Mapper().pack(columns, cols, repo.model.(Model).PK())
-		if err != nil {
+		m, id, perr = repo.model.(Mapable).Mapper().pack(columns, cols, repo.model.(Model).PK())
+		if perr != nil {
 			return
 		}
-		err = handle(m, id)
+		perr = handle(m, id)
 		return
 	})
+	if perr != nil {
+		return perr
+	}
 
 	return err
 }
