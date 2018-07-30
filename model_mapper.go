@@ -330,7 +330,7 @@ func (mm *ModelMapper) colValue(model interface{}, colname string) (result inter
 	if fd, ok := mm.fd(colname); ok {
 		result = values.FieldByName(fd.fieldname).Interface()
 	} else {
-		err = errors.New("field " + colname + " not defined")
+		err = errors.New("field " + colname + " not defined in table " + model.(Model).TableName())
 	}
 	return
 }

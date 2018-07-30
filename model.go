@@ -6,7 +6,7 @@ import (
 )
 
 // column to column relationship
-type Nexus map[string]string
+type Nexus map[string]interface{}
 
 type Model interface {
 	TableName() string // table name in database
@@ -157,16 +157,18 @@ func (base *Base) findOne(name string) (result interface{}, err error) {
 	if one, n, has = base.HasOne(name); !has {
 		return
 	}
-	var repo *Repo
-	if repo, err = NewRepo(one); err != nil {
-		return
-	}
+	repo := one.(Model).Repo()
 	for af, bf := range n {
-		value, err := base.fieldValue(af)
-		if err != nil {
-			return result, err
+		switch bf.(type) {
+		case NWhere:
+			repo.Where(af, bf.(NWhere).Op, bf.(NWhere).Value)
+		case string:
+			value, err := base.fieldValue(bf.(string))
+			if err != nil {
+				return result, err
+			}
+			repo.Where(af, value)
 		}
-		repo.Where(bf, value)
 	}
 	result, _, err = repo.One()
 
@@ -175,18 +177,23 @@ func (base *Base) findOne(name string) (result interface{}, err error) {
 
 func (base *Base) findMany(name string) (result interface{}, err error) {
 	var many interface{}
-	var rel map[string]string
+	var rel Nexus
 	var has bool
 	if many, rel, has = base.HasMany(name); !has {
 		return
 	}
 	repo := many.(Model).Repo()
 	for af, bf := range rel {
-		value, err := base.fieldValue(af)
-		if err != nil {
-			return result, err
+		switch bf.(type) {
+		case NWhere:
+			repo.Where(af, bf.(NWhere).Op, bf.(NWhere).Value)
+		case string:
+			value, err := base.fieldValue(bf.(string))
+			if err != nil {
+				return result, err
+			}
+			repo.Where(af, value)
 		}
-		repo.Where(bf, value)
 	}
 	result, err = repo.FetchKey(many.(Model).PK())
 

@@ -29,8 +29,9 @@ func (u *User) TableName() string {
 
 func NewUser() *User {
 	user := NewModel(new(User)).(*User)
-	user.DeclareMany("books", new(Book), map[string]string{
-		"id": "user_id",
+	user.DeclareMany("books", new(Book), Nexus{
+		"user_id": "id",
+		"id":      NWhere{GT, 0},
 	})
 	return user
 }
@@ -48,8 +49,8 @@ func (b *Book) TableName() string {
 
 func NewBook() *Book {
 	book := NewModel(new(Book)).(*Book)
-	book.DeclareOne("author", new(User), map[string]string{
-		"user_id": "id",
+	book.DeclareOne("author", new(User), Nexus{
+		"id": "user_id",
 	})
 	return book
 }
@@ -58,7 +59,7 @@ type withCustomCount struct {
 	data []map[string]interface{}
 }
 
-func (wc *withCustomCount) DataOf(m interface{}, _ map[string]string) interface{} {
+func (wc *withCustomCount) DataOf(m interface{}, _ Nexus) interface{} {
 	for _, item := range wc.data {
 		if m.(*User).Id == item["user_id"].(string) {
 			return item["number"]

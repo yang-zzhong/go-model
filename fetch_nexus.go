@@ -5,24 +5,32 @@ import (
 	"reflect"
 )
 
+type NWhere struct {
+	Op    string
+	Value interface{}
+}
+
 type NexusValues interface {
-	DataOf(m interface{}, rel map[string]string) interface{}
+	DataOf(m interface{}, rel Nexus) interface{}
 }
 
 type nexusValues struct {
 	data map[interface{}]interface{}
 }
 
-func (nve *nexusValues) DataOf(m interface{}, rel map[string]string) interface{} {
+func (nve *nexusValues) DataOf(m interface{}, rel Nexus) interface{} {
 	result := make(map[interface{}]interface{})
 	for k, item := range nve.data {
 		eq := true
-		for mf, itf := range rel {
-			afv, _ := m.(Mapable).Mapper().colValue(m, mf)
-			bfv, _ := item.(Mapable).Mapper().colValue(item, itf)
-			if afv != bfv {
-				eq = false
-				break
+		for field, val := range rel {
+			switch val.(type) {
+			case string:
+				a, _ := m.(Mapable).Mapper().colValue(m, val.(string))
+				b, _ := item.(Mapable).Mapper().colValue(item, field)
+				if a != b {
+					eq = false
+					break
+				}
 			}
 		}
 		if eq {
@@ -30,15 +38,6 @@ func (nve *nexusValues) DataOf(m interface{}, rel map[string]string) interface{}
 		}
 	}
 	return result
-}
-
-// a mid process needed struct see nexusValues
-type fornexus struct {
-	m       interface{}
-	n       Nexus
-	t       int
-	handler repoHandler
-	where   map[string][]interface{}
 }
 
 // a nexus result struct to hold the query result of a nexus
@@ -51,14 +50,7 @@ type nexusResult struct {
 }
 
 type repoHandler func(m interface{}) (NexusValues, error)
-
-// append a value to a nexus
-func (fn fornexus) append(field string, val interface{}) {
-	if _, ok := fn.where[field]; !ok {
-		fn.where[field] = []interface{}{}
-	}
-	fn.where[field] = append(fn.where[field], val)
-}
+type fornexusHandler func(field, op string, value interface{})
 
 // With tell repo that find nexus defined by model
 // if nexus not defined, With will ignore
@@ -66,7 +58,7 @@ func (repo *Repo) WithCustom(name string, handler repoHandler) *Repo {
 	t := t_bad
 	var ok bool
 	var m interface{}
-	var n map[string]string
+	var n map[string]interface{}
 	if m, n, ok = repo.model.(NexusOne).HasOne(name); ok {
 		t = t_one
 	} else if m, n, ok = repo.model.(NexusMany).HasMany(name); ok {
@@ -96,38 +88,34 @@ func (repo *Repo) With(name string) *Repo {
 // nexusValues fetch all nexus result according the repo fetch result
 func (repo *Repo) nexusValues(models []interface{}) (result []nexusResult, err error) {
 	// find each nexus's query where and model
-	mid := make(map[string]fornexus)
-	for _, m := range models {
-		for _, w := range repo.withs {
-			if w.t == t_bad {
-				err = errors.New("relationship " + w.name + " not exists")
-				return
-			}
-			if _, ok := mid[w.name]; !ok {
-				mid[w.name] = fornexus{
-					w.m,
-					w.n,
-					w.t,
-					w.handler,
-					make(map[string][]interface{})}
-			}
-			for af, bf := range w.n {
-				val, _ := repo.model.(Mapable).Mapper().colValue(m, af)
-				mid[w.name].append(bf, val)
+	for _, w := range repo.withs {
+		if w.t == t_bad {
+			err = errors.New("relationship " + w.name + " not exists")
+			return
+		}
+		r := w.m.(Model).Repo()
+		for af, bf := range w.n {
+			switch bf.(type) {
+			case NWhere:
+				r.Where(af, bf.(NWhere).Op, bf.(NWhere).Value)
+			case string:
+				vals := []interface{}{}
+				for _, m := range models {
+					if val, e := repo.model.(Mapable).Mapper().colValue(m, bf.(string)); e != nil {
+						err = e
+						return
+					} else {
+						vals = append(vals, val)
+					}
+				}
+				r.WhereIn(af, vals)
 			}
 		}
-	}
-	// fetch nexus result according to mid
-	for name, fn := range mid {
-		m := fn.m.(Model)
-		for field, val := range fn.where {
-			m.Repo().WhereIn(field, val)
-		}
-		if data, e := fn.handler(m); e != nil {
+		if data, e := w.handler(w.m); e != nil {
 			err = e
 			return
 		} else {
-			result = append(result, nexusResult{name, fn.m, fn.n, fn.t, data})
+			result = append(result, nexusResult{w.name, w.m, w.n, w.t, data})
 		}
 	}
 
