@@ -88,6 +88,9 @@ func (repo *Repo) With(name string) *Repo {
 // nexusValues fetch all nexus result according the repo fetch result
 func (repo *Repo) nexusValues(models []interface{}) (result []nexusResult, err error) {
 	// find each nexus's query where and model
+	if len(models) == 0 {
+		return
+	}
 	for _, w := range repo.withs {
 		if w.t == t_bad {
 			err = errors.New("relationship " + w.name + " not exists")
@@ -108,7 +111,9 @@ func (repo *Repo) nexusValues(models []interface{}) (result []nexusResult, err e
 						vals = append(vals, val)
 					}
 				}
-				r.WhereIn(af, vals)
+				if len(vals) != 0 {
+					r.WhereIn(af, vals)
+				}
 			}
 		}
 		if data, e := w.handler(w.m); e != nil {
