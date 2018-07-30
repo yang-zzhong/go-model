@@ -286,19 +286,21 @@ func TestWithCustom(t *T) {
 			repo.Select(E{"count(1) as number"}, "user_id")
 			repo.GroupBy("user_id")
 			data := []map[string]interface{}{}
-			repo.Query(func(rows *sql.Rows, _ []string) {
+			err = repo.Query(func(rows *sql.Rows, _ []string) error {
 				var number int
 				var user_id string
 				if err = rows.Scan(&number, &user_id); err != nil {
-					return
+					return err
 				}
 				data = append(data, map[string]interface{}{
 					"number":  number,
 					"user_id": user_id,
 				})
-				return
+				return nil
 			})
-			val = &withCustomCount{data}
+			if err == nil {
+				val = &withCustomCount{data}
+			}
 			return
 		})
 		if ms, err := user.Repo().Fetch(); err != nil {

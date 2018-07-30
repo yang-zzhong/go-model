@@ -8,7 +8,7 @@ import (
 	"reflect"
 )
 
-type rowshandler func(*sql.Rows, []string)
+type rowshandler func(*sql.Rows, []string) error
 type handlerForQueryModel func(m interface{}, pk interface{}) error
 
 // oncreate and onupdate callback type
@@ -131,7 +131,9 @@ func (repo *Repo) Query(handle rowshandler) error {
 		return err
 	}
 	for rows.Next() {
-		handle(rows, cols)
+		if err := handle(rows, cols); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -178,33 +180,27 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 	return
 }
 
-func (repo *Repo) fetch(handle handlerForQueryModel) (err error) {
+func (repo *Repo) fetch(handle handlerForQueryModel) error {
 	var cols []interface{}
 	colget := false
-	var perr error
-	err = repo.Query(func(rows *sql.Rows, columns []string) {
+	return repo.Query(func(rows *sql.Rows, columns []string) error {
+		var err error
 		if !colget {
-			if cols, perr = repo.model.(Mapable).Mapper().cols(columns); perr != nil {
-				return
+			if cols, err = repo.model.(Mapable).Mapper().cols(columns); err != nil {
+				return err
 			}
 			colget = true
 		}
-		if perr = rows.Scan(cols...); perr != nil {
-			return
+		if err = rows.Scan(cols...); err != nil {
+			return err
 		}
 		var m, id interface{}
-		m, id, perr = repo.model.(Mapable).Mapper().pack(columns, cols, repo.model.(Model).PK())
-		if perr != nil {
-			return
+		m, id, err = repo.model.(Mapable).Mapper().pack(columns, cols, repo.model.(Model).PK())
+		if err == nil {
+			return handle(m, id)
 		}
-		perr = handle(m, id)
-		return
+		return err
 	})
-	if perr != nil {
-		return perr
-	}
-
-	return err
 }
 
 func (repo *Repo) One() (interface{}, bool, error) {
