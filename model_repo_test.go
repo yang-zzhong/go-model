@@ -218,6 +218,19 @@ func TestUpdate(t *T) {
 	}, t, "update")
 }
 
+func TestCount(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		insertUser(user)
+		if count, err := user.Repo().Count(); err != nil {
+			return err
+		} else if count != 1 {
+			return errors.New("count error")
+		}
+		return nil
+	}, t, "count")
+}
+
 func TestFetchNexus(t *T) {
 	suit(func(t *T) error {
 		user := NewUser()

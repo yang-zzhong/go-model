@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
-	"log"
 	"reflect"
 )
 
@@ -106,7 +105,6 @@ func (repo *Repo) Clean() {
 
 // count
 func (repo *Repo) Count() (int, error) {
-	log.Print(repo.ForCount())
 	rows, err := repo.conn.Query(repo.ForCount(), repo.Params()...)
 	if err != nil {
 		return 0, err
