@@ -14,11 +14,15 @@ type NexusValues interface {
 	DataOf(m interface{}, rel Nexus) interface{}
 }
 
-type nexusValues struct {
+type DefaultNexusValues struct {
 	data map[interface{}]interface{}
 }
 
-func (nve *nexusValues) DataOf(m interface{}, rel Nexus) interface{} {
+func NewNexusValues(data map[interface{}]interface{}) NexusValues {
+	return &DefaultNexusValues{data}
+}
+
+func (nve *DefaultNexusValues) DataOf(m interface{}, rel Nexus) interface{} {
 	result := make(map[interface{}]interface{})
 	for k, item := range nve.data {
 		eq := true
@@ -79,7 +83,7 @@ func (repo *Repo) With(name string) *Repo {
 		if d, e := m.(Model).Repo().FetchKey(m.(Model).PK()); e != nil {
 			err = e
 		} else {
-			data = &nexusValues{d}
+			data = &DefaultNexusValues{d}
 		}
 		return
 	})
