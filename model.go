@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 )
 
@@ -155,6 +156,7 @@ func (base *Base) findOne(name string) (result interface{}, err error) {
 	var n Nexus
 	var has bool
 	if one, n, has = base.HasOne(name); !has {
+		err = errors.New("nexus of " + name + "does not exist")
 		return
 	}
 	repo := one.(Model).Repo()
@@ -232,11 +234,21 @@ func (base *Base) One(name string) (one interface{}, err error) {
 	return
 }
 
-func (base *Base) OneOrFail(name string) interface{} {
-	if one, err := base.One(name); err == nil {
-		return one
-	} else {
+func (base *Base) MustOne(name string) interface{} {
+	if one, err := base.One(name); err != nil {
 		panic(err)
+	} else if one == nil {
+		panic(errors.New("one not exists"))
+	} else {
+		return one
+	}
+}
+
+func (base *Base) MustMany(name string) interface{} {
+	if many, err := base.Many(name); err != nil {
+		panic(err)
+	} else {
+		return many
 	}
 }
 
