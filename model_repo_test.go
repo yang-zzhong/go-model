@@ -85,6 +85,12 @@ func TestFill(t *T) {
 	}, t, "fill")
 }
 
+func TestIsModelErr(t *T) {
+	if IsModelErr(&Error{ERR_SQL, errors.New("fake error sql")}) {
+		log.Printf("%v\t\tOK", "is model err")
+	}
+}
+
 func TestCreate(t *T) {
 	suit(func(t *T) error {
 		user := NewUser()
@@ -497,6 +503,9 @@ func suit(handle handler, t *T, name string) {
 	clearRepo(ur)
 	clearRepo(br)
 	if err != nil {
+		if IsModelErr(err) {
+			log.Print("model error")
+		}
 		t.Fatalf("%v:\t%v", name, err)
 	}
 	log.Printf("%v\t\tOK", name)

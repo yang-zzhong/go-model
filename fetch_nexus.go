@@ -97,7 +97,7 @@ func (repo *Repo) nexusValues(models []interface{}) (result []nexusResult, err e
 	}
 	for _, w := range repo.withs {
 		if w.t == t_bad {
-			err = errors.New("relationship " + w.name + " not exists")
+			err = &Error{ERR_NEXUS_UNDEFINED, errors.New("nexus " + w.name + " not exists")}
 			return
 		}
 		r := w.m.(Model).Repo()

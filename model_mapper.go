@@ -58,9 +58,8 @@ func (mm *ModelMapper) cols(columns []string) (result []interface{}, err error) 
 	var field interface{}
 	for i, colname := range columns {
 		if fd, ok = mm.fd(colname); !ok {
-			var value int64
-			pointers[i] = &value
-			continue
+			err = &Error{ERR_COL_UNDEFINED, errors.New("col " + colname + " undefined")}
+			return
 		}
 		field = mm.value.FieldByName(fd.fieldname).Interface()
 		if converter, ok := mm.model.(ValueConverter); ok {
@@ -89,7 +88,10 @@ func (mm *ModelMapper) cols(columns []string) (result []interface{}, err error) 
 			case NullTime:
 				pointers[i] = new(NullTime)
 			default:
-				err = errors.New("unknown type of field " + colname)
+				err = &Error{
+					ERR_UNKNOWN_COLTYPE,
+					errors.New("unknown type of field " + colname),
+				}
 			}
 		} else {
 			switch field.(type) {
@@ -138,7 +140,10 @@ func (mm *ModelMapper) cols(columns []string) (result []interface{}, err error) 
 				var value bool
 				pointers[i] = &value
 			default:
-				err = errors.New("unknown type of field " + colname)
+				err = &Error{
+					ERR_UNKNOWN_COLTYPE,
+					errors.New("unknown type of field " + colname),
+				}
 			}
 		}
 	}
@@ -153,7 +158,8 @@ func (mm *ModelMapper) pack(columns []string, cols []interface{}, key string) (m
 	v := reflect.New(reflect.ValueOf(mm.model).Elem().Type()).Elem()
 	for i, colname := range columns {
 		if fd, ok = mm.fd(colname); !ok {
-			continue
+			err = &Error{ERR_COL_UNDEFINED, errors.New("col " + colname + " undefined")}
+			return
 		}
 		field := v.FieldByName(fd.fieldname)
 		col := reflect.ValueOf(cols[i]).Elem().Interface()
@@ -273,8 +279,10 @@ func (mm *ModelMapper) pack(columns []string, cols []interface{}, key string) (m
 					value = reflect.ValueOf(t.Time)
 				}
 			default:
-				err = errors.New("unknown type of " + fd.colname)
-				return
+				err = &Error{
+					ERR_UNKNOWN_COLTYPE,
+					errors.New("unknown type of field " + colname),
+				}
 			}
 		} else {
 			value = reflect.ValueOf(col)
@@ -330,7 +338,7 @@ func (mm *ModelMapper) colValue(model interface{}, colname string) (result inter
 	if fd, ok := mm.fd(colname); ok {
 		result = values.FieldByName(fd.fieldname).Interface()
 	} else {
-		err = errors.New("field " + colname + " not defined in table " + model.(Model).TableName())
+		err = &Error{ERR_COL_UNDEFINED, errors.New("col " + colname + " undefined")}
 	}
 	return
 }

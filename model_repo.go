@@ -206,7 +206,7 @@ func (repo *Repo) fetch(handle handlerForQueryModel) error {
 			colget = true
 		}
 		if err = rows.Scan(cols...); err != nil {
-			return err
+			return &Error{ERR_SCAN, err}
 		}
 		var m, id interface{}
 		m, id, err = repo.model.(Mapable).Mapper().pack(columns, cols, repo.model.(Model).PK())
@@ -221,7 +221,7 @@ func (repo *Repo) MustOne() interface{} {
 	if m, exist, err := repo.One(); err != nil {
 		panic(err)
 	} else if !exist {
-		panic(errors.New("data not found"))
+		panic(&Error{ERR_DATA_NOT_FOUND, errors.New("data not found")})
 	} else {
 		return m
 	}
@@ -243,7 +243,7 @@ func (repo *Repo) MustFind(id interface{}) interface{} {
 	if m, exist, err := repo.Find(id); err != nil {
 		panic(err)
 	} else if !exist {
-		panic(errors.New("data not found"))
+		panic(&Error{ERR_DATA_NOT_FOUND, errors.New("data not found")})
 	} else {
 		return m
 	}
@@ -441,13 +441,29 @@ func (repo *Repo) Delete(models interface{}) error {
 	return err
 }
 
-func (repo *Repo) exec(sql string) (sql.Result, error) {
+func (repo *Repo) exec(sql string) (res sql.Result, err error) {
 	if repo.tx != nil {
-		return repo.tx.Exec(sql, repo.Params()...)
+		if r, e := repo.tx.Exec(sql, repo.Params()...); e != nil {
+			err = &Error{ERR_SQL, e}
+		} else {
+			res = r
+		}
+	} else {
+		if r, e := repo.conn.Exec(sql, repo.Params()...); e != nil {
+			err = &Error{ERR_SQL, e}
+		} else {
+			res = r
+		}
 	}
-	return repo.conn.Exec(sql, repo.Params()...)
+	return
 }
 
-func (repo *Repo) query() (*sql.Rows, error) {
-	return repo.conn.Query(repo.ForQuery(), repo.Params()...)
+func (repo *Repo) query() (rows *sql.Rows, err error) {
+	if r, e := repo.conn.Query(repo.ForQuery(), repo.Params()...); e != nil {
+		err = &Error{ERR_SQL, e}
+	} else {
+		rows = r
+	}
+
+	return
 }
