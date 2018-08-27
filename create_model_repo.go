@@ -18,11 +18,11 @@ func (repo *Repo) DropRepo() error {
 func (repo *Repo) CreateRepo() error {
 	sqlang, indexes := repo.forCreateTable()
 	return Conn.Tx(func(tx *sql.Tx) error {
-		if _, err := tx.Exec(sqlang); err != nil {
+		if _, err := repo.exec(sqlang); err != nil {
 			return err
 		}
 		for _, index := range indexes {
-			if _, err := tx.Exec(index); err != nil {
+			if _, err := repo.exec(index); err != nil {
 				return err
 			}
 		}

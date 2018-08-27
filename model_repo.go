@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
+	"log"
 	"reflect"
 )
 
@@ -442,6 +443,17 @@ func (repo *Repo) Delete(models interface{}) error {
 }
 
 func (repo *Repo) exec(sql string) (res sql.Result, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Print(e)
+			switch e.(type) {
+			case string:
+				err = &Error{ERR_SQL, errors.New(e.(string))}
+			case error:
+				err = &Error{ERR_SQL, e.(error)}
+			}
+		}
+	}()
 	if repo.tx != nil {
 		if r, e := repo.tx.Exec(sql, repo.Params()...); e != nil {
 			err = &Error{ERR_SQL, e}
@@ -459,6 +471,16 @@ func (repo *Repo) exec(sql string) (res sql.Result, err error) {
 }
 
 func (repo *Repo) query() (rows *sql.Rows, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			switch e.(type) {
+			case string:
+				err = &Error{ERR_SQL, errors.New(e.(string))}
+			case error:
+				err = &Error{ERR_SQL, e.(error)}
+			}
+		}
+	}()
 	if r, e := repo.conn.Query(repo.ForQuery(), repo.Params()...); e != nil {
 		err = &Error{ERR_SQL, e}
 	} else {

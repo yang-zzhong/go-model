@@ -369,6 +369,27 @@ func TestFetch(t *T) {
 	}, t, "fetch")
 }
 
+func TestTx(t *T) {
+	suit(func(t *T) error {
+		user := NewUser()
+		book := NewBook()
+		insertUser(user)
+		insertBook(book)
+		Conn.Tx(func(tx *sql.Tx) error {
+			user.Repo().WithTx(tx)
+			if err := user.Delete(); err != nil {
+				return err
+			}
+			return errors.New("for test tx")
+		}, nil, nil)
+		ms := user.Repo().WithoutTx().MustFetch()
+		if len(ms) == 0 {
+			errors.New("tx error")
+		}
+		return nil
+	}, t, "tx")
+}
+
 func TestFind(t *T) {
 	suit(func(t *T) error {
 		user := NewUser()
@@ -495,6 +516,11 @@ func initConn() *sql.DB {
 }
 
 func suit(handle handler, t *T, name string) {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Print(e)
+		}
+	}()
 	db := initConn()
 	defer db.Close()
 	ur := createUserRepo()
