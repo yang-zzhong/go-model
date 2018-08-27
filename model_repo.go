@@ -137,6 +137,14 @@ func (repo *Repo) Query(handle rowshandler) error {
 	return nil
 }
 
+func (repo *Repo) MustFetch() []interface{} {
+	if ms, err := repo.Fetch(); err != nil {
+		panic(err)
+	} else {
+		return ms
+	}
+}
+
 func (repo *Repo) Fetch() (models []interface{}, err error) {
 	err = repo.fetch(func(m interface{}, _ interface{}) error {
 		models = append(models, m)
@@ -154,6 +162,14 @@ func (repo *Repo) Fetch() (models []interface{}, err error) {
 	}
 
 	return
+}
+
+func (repo *Repo) MustFetchKey(col string) map[interface{}]interface{} {
+	if ms, err := repo.FetchKey(col); err != nil {
+		panic(err)
+	} else {
+		return ms
+	}
 }
 
 func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err error) {
@@ -201,6 +217,16 @@ func (repo *Repo) fetch(handle handlerForQueryModel) error {
 	})
 }
 
+func (repo *Repo) MustOne() interface{} {
+	if m, exist, err := repo.One(); err != nil {
+		panic(err)
+	} else if !exist {
+		panic(errors.New("data not found"))
+	} else {
+		return m
+	}
+}
+
 func (repo *Repo) One() (interface{}, bool, error) {
 	if rows, err := repo.Fetch(); err != nil {
 		return nil, false, err
@@ -211,6 +237,16 @@ func (repo *Repo) One() (interface{}, bool, error) {
 	}
 
 	return nil, false, nil
+}
+
+func (repo *Repo) MustFind(id interface{}) interface{} {
+	if m, exist, err := repo.Find(id); err != nil {
+		panic(err)
+	} else if !exist {
+		panic(errors.New("data not found"))
+	} else {
+		return m
+	}
 }
 
 func (repo *Repo) Find(id interface{}) (interface{}, bool, error) {
