@@ -279,6 +279,7 @@ func (repo *Repo) Update(models interface{}) error {
 		val = val.Elem()
 	}
 	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
+	r.tx = repo.tx
 	field := repo.model.(Model).PK()
 	mm := repo.model.(Mapable).Mapper()
 	switch val.Kind() {
@@ -363,6 +364,7 @@ func (repo *Repo) Create(models interface{}) error {
 		}
 	}
 	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
+	r.tx = repo.tx
 	_, err = r.exec(r.ForInsert(data))
 	if err == nil {
 		for _, m := range ms {
@@ -379,6 +381,7 @@ func (repo *Repo) Delete(models interface{}) error {
 		val = val.Elem()
 	}
 	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
+	r.tx = repo.tx
 	field := r.model.(Model).PK()
 	ins := []interface{}{}
 	mm := r.model.(Mapable).Mapper()
