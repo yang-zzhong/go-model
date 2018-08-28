@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	. "github.com/yang-zzhong/go-querybuilder"
-	"log"
 	"reflect"
 )
 
@@ -295,42 +294,36 @@ func (repo *Repo) Update(models interface{}) error {
 		}
 	case reflect.Slice:
 		slice := models.([]interface{})
-		return repo.conn.Tx(func(tx *sql.Tx) error {
-			r.WithTx(tx)
-			for _, m := range slice {
-				if v, err := mm.colValue(m, field); err == nil {
-					if err := repo.onupdate(m); err != nil {
-						return err
-					}
-					r.Where(field, v)
-					if err := r.UpdateRaw(mm.extract(m)); err != nil {
-						return err
-					}
-				} else {
+		for _, m := range slice {
+			if v, err := mm.colValue(m, field); err == nil {
+				if err := repo.onupdate(m); err != nil {
 					return err
 				}
+				r.Where(field, v)
+				if err := r.UpdateRaw(mm.extract(m)); err != nil {
+					return err
+				}
+			} else {
+				return err
 			}
-			return nil
-		}, nil, nil)
+		}
+		return nil
 	case reflect.Map:
 		maps := models.([]interface{})
-		return repo.conn.Tx(func(tx *sql.Tx) error {
-			r.WithTx(tx)
-			for _, m := range maps {
-				if v, err := mm.colValue(m, field); err == nil {
-					if err := repo.onupdate(m); err != nil {
-						return err
-					}
-					r.Where(field, v)
-					if err := r.UpdateRaw(mm.extract(m)); err != nil {
-						return err
-					}
-				} else {
+		for _, m := range maps {
+			if v, err := mm.colValue(m, field); err == nil {
+				if err := repo.onupdate(m); err != nil {
 					return err
 				}
+				r.Where(field, v)
+				if err := r.UpdateRaw(mm.extract(m)); err != nil {
+					return err
+				}
+			} else {
+				return err
 			}
-			return nil
-		}, nil, nil)
+		}
+		return nil
 	}
 	return nil
 }
@@ -445,7 +438,6 @@ func (repo *Repo) Delete(models interface{}) error {
 func (repo *Repo) exec(sql string) (res sql.Result, err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			log.Print(e)
 			switch e.(type) {
 			case string:
 				err = &Error{ERR_SQL, errors.New(e.(string))}

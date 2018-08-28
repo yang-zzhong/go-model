@@ -1,7 +1,6 @@
 package model
 
 import (
-	"database/sql"
 	"strings"
 )
 
@@ -17,17 +16,15 @@ func (repo *Repo) DropRepo() error {
 // CreateRepo will create database table about the repo
 func (repo *Repo) CreateRepo() error {
 	sqlang, indexes := repo.forCreateTable()
-	return Conn.Tx(func(tx *sql.Tx) error {
-		if _, err := repo.exec(sqlang); err != nil {
+	if _, err := repo.exec(sqlang); err != nil {
+		return err
+	}
+	for _, index := range indexes {
+		if _, err := repo.exec(index); err != nil {
 			return err
 		}
-		for _, index := range indexes {
-			if _, err := repo.exec(index); err != nil {
-				return err
-			}
-		}
-		return nil
-	}, nil, nil)
+	}
+	return nil
 }
 
 // forCreateTable generate the create database table sql lang and create database index sql lang

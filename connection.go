@@ -42,10 +42,20 @@ func (conn *Connection) Tx(handle txhandler, ctx context.Context, opts *sql.TxOp
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if e := recover(); e != nil {
+			tx.Rollback()
+			panic(e)
+		}
+	}()
 	if err := handle(tx); err != nil {
 		tx.Rollback()
 		return err
 	}
+	if err := tx.Commit(); err != nil {
+		tx.Rollback()
+		return err
+	}
 
-	return tx.Commit()
+	return nil
 }
