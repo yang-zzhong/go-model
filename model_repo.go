@@ -111,10 +111,19 @@ func (repo *Repo) Count() (int, error) {
 	}
 	var count int
 	for rows.Next() {
-		rows.Scan(&count)
-		break
+		if err = rows.Scan(&count); err != nil {
+			return 0, err
+		}
 	}
 	return count, nil
+}
+
+func (repo *Repo) MustCount() int {
+	if count, err := repo.Count(); err != nil {
+		panic(err)
+	} else {
+		return count
+	}
 }
 
 func (repo *Repo) Query(handle rowshandler) error {
