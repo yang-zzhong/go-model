@@ -109,6 +109,7 @@ func (repo *Repo) Count() (int, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer rows.Close()
 	var count int
 	for rows.Next() {
 		if err = rows.Scan(&count); err != nil {
