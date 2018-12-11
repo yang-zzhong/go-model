@@ -100,7 +100,8 @@ func (repo *Repo) nexusValues(models []interface{}) (result []nexusResult, err e
 			err = &Error{ERR_NEXUS_UNDEFINED, errors.New("nexus " + w.name + " not exists")}
 			return
 		}
-		r := w.m.(Model).Repo()
+		nm := NewModel(w.m)
+		r := nm.(Model).Repo()
 		for af, bf := range w.n {
 			switch bf.(type) {
 			case NWhere:
@@ -120,11 +121,11 @@ func (repo *Repo) nexusValues(models []interface{}) (result []nexusResult, err e
 				}
 			}
 		}
-		if data, e := w.handler(w.m); e != nil {
+		if data, e := w.handler(nm); e != nil {
 			err = e
 			return
 		} else {
-			result = append(result, nexusResult{w.name, w.m, w.n, w.t, data})
+			result = append(result, nexusResult{w.name, nm, w.n, w.t, data})
 		}
 	}
 

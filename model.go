@@ -9,6 +9,10 @@ import (
 // column to column relationship
 type Nexus map[string]interface{}
 
+type Preparable interface {
+	Prepare()
+}
+
 type Model interface {
 	TableName() string // table name in database
 	PK() string        // primary key for the table
@@ -104,12 +108,12 @@ func (base *Base) SetFresh(fresh bool) {
 }
 
 func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
-	one.(BaseI).InitBase(one)
+	// one.(BaseI).InitBase(one)
 	m.ones[name] = relationship{one, n}
 }
 
 func (base *Base) DeclareMany(name string, many interface{}, n Nexus) {
-	many.(BaseI).InitBase(many)
+	// many.(BaseI).InitBase(many)
 	base.manys[name] = relationship{many, n}
 }
 
@@ -159,7 +163,8 @@ func (base *Base) findOne(name string) (result interface{}, err error) {
 		err = errors.New("nexus of " + name + "does not exist")
 		return
 	}
-	repo := one.(Model).Repo()
+	m := NewModel(one).(Model)
+	repo := m.Repo()
 	for af, bf := range n {
 		switch bf.(type) {
 		case NWhere:
@@ -184,7 +189,8 @@ func (base *Base) findMany(name string) (result interface{}, err error) {
 	if many, rel, has = base.HasMany(name); !has {
 		return
 	}
-	repo := many.(Model).Repo()
+	m := NewModel(many).(Model)
+	repo := m.Repo()
 	for af, bf := range rel {
 		switch bf.(type) {
 		case NWhere:
@@ -197,7 +203,7 @@ func (base *Base) findMany(name string) (result interface{}, err error) {
 			repo.Where(af, value)
 		}
 	}
-	result, err = repo.FetchKey(many.(Model).PK())
+	result, err = repo.FetchKey(m.PK())
 
 	return
 }
@@ -393,5 +399,8 @@ func SetBase(model interface{}, base *Base) {
 			field.Set(reflect.ValueOf(base))
 			break
 		}
+	}
+	if m, ok := model.(Preparable); ok {
+		m.Prepare()
 	}
 }

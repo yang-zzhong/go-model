@@ -27,13 +27,21 @@ func (u *User) TableName() string {
 	return "user"
 }
 
-func NewUser() *User {
-	user := NewModel(new(User)).(*User)
-	user.DeclareMany("books", new(Book), Nexus{
+func (u *User) Prepare() {
+	u.OnCreate(func(m interface{}) error {
+		if m.(*User).CreatedAt.IsZero() {
+			m.(*User).CreatedAt = time.Now()
+		}
+		return nil
+	})
+	u.DeclareMany("books", new(Book), Nexus{
 		"user_id": "id",
 		"id":      NWhere{GT, 0},
 	})
-	return user
+}
+
+func NewUser() *User {
+	return NewModel(new(User)).(*User)
 }
 
 type Book struct {
@@ -47,12 +55,14 @@ func (b *Book) TableName() string {
 	return "book"
 }
 
-func NewBook() *Book {
-	book := NewModel(new(Book)).(*Book)
-	book.DeclareOne("author", new(User), Nexus{
+func (b *Book) Prepare() {
+	b.DeclareOne("author", new(User), Nexus{
 		"id": "user_id",
 	})
-	return book
+}
+
+func NewBook() *Book {
+	return NewModel(new(Book)).(*Book)
 }
 
 type withCustomCount struct {
@@ -72,11 +82,10 @@ func TestFill(t *T) {
 	suit(func(t *T) error {
 		user := NewUser()
 		user.Fill(map[string]interface{}{
-			"id":        "1",
-			"name":      "yang-zhong",
-			"age":       17,
-			"level":     1,
-			"create_at": time.Now(),
+			"id":    "1",
+			"name":  "yang-zhong",
+			"age":   17,
+			"level": 1,
 		})
 		if !isUser(user) {
 			return errors.New("fill error")
@@ -516,15 +525,17 @@ func initConn() *sql.DB {
 }
 
 func suit(handle handler, t *T, name string) {
-	defer func() {
-		if e := recover(); e != nil {
-			log.Print(e)
-		}
-	}()
 	db := initConn()
 	defer db.Close()
 	ur := createUserRepo()
 	br := createBookRepo()
+	defer func() {
+		if e := recover(); e != nil {
+			log.Print(e)
+			clearRepo(ur)
+			clearRepo(br)
+		}
+	}()
 	err := handle(t)
 	clearRepo(ur)
 	clearRepo(br)
