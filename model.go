@@ -317,7 +317,9 @@ func (base *Base) Save() error {
 
 func (base *Base) Fill(data map[string]interface{}) {
 	for colname, val := range data {
-		if fd, ok := base.mapper.fd(colname); !ok {
+		if val == nil {
+			continue
+		} else if fd, ok := base.mapper.fd(colname); !ok {
 			continue
 		} else if fd.protected {
 			continue
