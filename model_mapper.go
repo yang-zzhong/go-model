@@ -12,6 +12,7 @@ type fdhandler func(fd *fieldDescriptor) bool
 type ModelMapper struct {
 	model     interface{}
 	value     reflect.Value
+	pk        string
 	fds       map[string]*fieldDescriptor
 	field2col map[string]string
 }
@@ -33,9 +34,17 @@ func NewModelMapper(model interface{}) *ModelMapper {
 		fd := newFd(field.Name, td)
 		mm.field2col[fd.fieldname] = fd.colname
 		mm.fds[fd.colname] = fd
+		if fd.ispk {
+			mm.pk = fd.colname
+		}
 	}
 
 	return mm
+}
+
+func (mm *ModelMapper) has(colname string) bool {
+	_, ok := mm.fds[colname]
+	return ok
 }
 
 func (mm *ModelMapper) each(handle fdhandler) {
@@ -294,17 +303,7 @@ func (mm *ModelMapper) pack(columns []string, cols []interface{}, key string) (m
 			id = value.Interface()
 		}
 	}
-	model = v.Addr().Interface()
-	if base, ok := GetBase(mm.model); ok {
-		b := NewBase(model)
-		b.fresh = false
-		b.oncreate = base.oncreate
-		b.onupdate = base.onupdate
-		b.ondelete = base.ondelete
-		b.ones = base.ones
-		b.manys = base.manys
-		SetBase(model, b)
-	}
+	model = NewModel(v.Addr().Interface())
 	return
 }
 

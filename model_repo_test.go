@@ -137,8 +137,8 @@ func TestGet(t *T) {
 func TestSet(t *T) {
 	suit(func(t *T) error {
 		user := NewUser()
-		if ok := user.Set("id", "100"); !ok {
-			return errors.New("set error")
+		if err := user.Set("id", "100"); err != nil {
+			return err
 		}
 		if user.Get("id").(string) != "100" {
 			return errors.New("set error")

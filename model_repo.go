@@ -378,7 +378,7 @@ func (repo *Repo) Create(models interface{}) error {
 	_, err = r.exec(r.ForInsert(data))
 	if err == nil {
 		for _, m := range ms {
-			m.(BaseI).SetFresh(false)
+			m.(Model).SetFresh(false)
 		}
 	}
 
@@ -441,7 +441,7 @@ func (repo *Repo) Delete(models interface{}) error {
 	err := r.DeleteRaw()
 	if err == nil {
 		for _, m := range ms {
-			m.(BaseI).SetFresh(true)
+			m.(Model).SetFresh(true)
 		}
 	}
 

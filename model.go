@@ -17,11 +17,12 @@ type Model interface {
 	TableName() string // table name in database
 	PK() string        // primary key for the table
 	Repo() *Repo
-	Save() error                           // save to db
-	Fill(data map[string]interface{})      // fill values
-	Set(name string, val interface{}) bool // set col value
+	Save() error                            // save to db
+	Fill(data map[string]interface{})       // fill values
+	Set(name string, val interface{}) error // set col value
 	Has(name string) bool
 	Get(name string) interface{} // set col value
+	SetFresh(fresh bool)
 	OnCreate(handle modify)
 	OnUpdate(handle modify)
 	OnDelete(handle modify)
@@ -51,11 +52,6 @@ type ValueConverter interface {
 	Value(fieldName string, value interface{}) (reflect.Value, bool) // conver database value to struct field value
 }
 
-type BaseI interface {
-	SetFresh(fresh bool)
-	InitBase(m interface{})
-}
-
 // relationship
 type relationship struct {
 	target interface{} // related with who
@@ -77,7 +73,7 @@ type Base struct {
 }
 
 // new a base model
-func NewBase(m interface{}) *Base {
+func newBase(m interface{}) *Base {
 	base := new(Base)
 	base.fresh = true
 	base.oncreate = func(_ interface{}) error { return nil }
@@ -108,17 +104,11 @@ func (base *Base) SetFresh(fresh bool) {
 }
 
 func (m *Base) DeclareOne(name string, one interface{}, n Nexus) {
-	// one.(BaseI).InitBase(one)
 	m.ones[name] = relationship{one, n}
 }
 
 func (base *Base) DeclareMany(name string, many interface{}, n Nexus) {
-	// many.(BaseI).InitBase(many)
 	base.manys[name] = relationship{many, n}
-}
-
-func (base *Base) InitBase(model interface{}) {
-	SetBase(model, NewBase(model))
 }
 
 func (base *Base) HasOne(name string) (one interface{}, n Nexus, has bool) {
@@ -222,7 +212,9 @@ func (base *Base) Repo() *Repo {
 	if base.repo, err = NewRepo(base.mapper.model); err != nil {
 		panic(err)
 	}
-	base.repo.OnCreate(base.oncreate)
+	if base.oncreate != nil {
+		base.repo.OnCreate(base.oncreate)
+	}
 	base.repo.OnUpdate(base.onupdate)
 	base.repo.OnDelete(base.ondelete)
 	return base.repo
@@ -330,29 +322,19 @@ func (base *Base) Fill(data map[string]interface{}) {
 	}
 }
 
-func (base *Base) Set(colname string, val interface{}) bool {
+func (base *Base) Set(colname string, val interface{}) error {
 	if fd, ok := base.mapper.fd(colname); ok {
-		if fd.protected {
-			return false
-		}
 		field := base.mapper.value.FieldByName(fd.fieldname)
 		field.Set(reflect.ValueOf(val))
-		return true
+
+		return nil
 	}
 
-	return false
+	return errors.New("col " + colname + " not defined on model")
 }
 
 func (base *Base) Has(colname string) bool {
-	has := false
-	base.mapper.each(func(fd *fieldDescriptor) bool {
-		if fd.colname == colname {
-			has = true
-			return false
-		}
-		return true
-	})
-	return has
+	return base.mapper.has(colname)
 }
 
 func (base *Base) Get(colname string) interface{} {
@@ -364,45 +346,15 @@ func (base *Base) Get(colname string) interface{} {
 }
 
 func (base *Base) PK() string {
-	var pk string
-	base.mapper.each(func(fd *fieldDescriptor) bool {
-		if fd.ispk {
-			pk = fd.colname
-			return false
-		}
-		return true
-	})
-	return pk
+	return base.mapper.pk
 }
 
 func NewModel(m interface{}) interface{} {
-	m.(BaseI).InitBase(m)
-
+	value := reflect.ValueOf(m)
+	field := value.Elem().FieldByName("Base")
+	field.Set(reflect.ValueOf(newBase(m)))
+	if p, ok := m.(Preparable); ok {
+		p.Prepare()
+	}
 	return m
-}
-
-func GetBase(model interface{}) (*Base, bool) {
-	value := reflect.ValueOf(model).Elem()
-	for i := 0; i < value.NumField(); i++ {
-		field := value.Field(i)
-		if field.Type().String() == "*model.Base" && !field.IsNil() {
-			return field.Interface().(*Base), true
-		}
-	}
-
-	return nil, false
-}
-
-func SetBase(model interface{}, base *Base) {
-	value := reflect.ValueOf(model).Elem()
-	for i := 0; i < value.NumField(); i++ {
-		field := value.Field(i)
-		if field.Type().String() == "*model.Base" {
-			field.Set(reflect.ValueOf(base))
-			break
-		}
-	}
-	if m, ok := model.(Preparable); ok {
-		m.Prepare()
-	}
 }
