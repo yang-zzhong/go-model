@@ -76,9 +76,6 @@ type Base struct {
 func newBase(m interface{}) *Base {
 	base := new(Base)
 	base.fresh = true
-	base.oncreate = func(_ interface{}) error { return nil }
-	base.onupdate = func(_ interface{}) error { return nil }
-	base.ondelete = func(_ interface{}) error { return nil }
 	base.mapper = NewModelMapper(m)
 	base.ones = make(map[string]relationship)
 	base.manys = make(map[string]relationship)
@@ -88,15 +85,15 @@ func newBase(m interface{}) *Base {
 }
 
 func (base *Base) OnCreate(m modify) {
-	base.oncreate = m
+	base.Repo().oncreate = m
 }
 
 func (base *Base) OnUpdate(m modify) {
-	base.onupdate = m
+	base.Repo().onupdate = m
 }
 
 func (base *Base) OnDelete(m modify) {
-	base.ondelete = m
+	base.Repo().ondelete = m
 }
 
 func (base *Base) SetFresh(fresh bool) {
@@ -212,11 +209,7 @@ func (base *Base) Repo() *Repo {
 	if base.repo, err = NewRepo(base.mapper.model); err != nil {
 		panic(err)
 	}
-	if base.oncreate != nil {
-		base.repo.OnCreate(base.oncreate)
-	}
-	base.repo.OnUpdate(base.onupdate)
-	base.repo.OnDelete(base.ondelete)
+
 	return base.repo
 }
 

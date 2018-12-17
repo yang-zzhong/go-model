@@ -1,7 +1,6 @@
 package model
 
 import (
-	helper "github.com/yang-zzhong/go-helpers"
 	"strings"
 )
 
@@ -53,10 +52,17 @@ func (fd *fieldDescriptor) parse(src string) {
 	fd.coltype = arr[1]
 	if len(arr) == 3 {
 		opt := strings.Split(arr[2], ",")
-		fd.nullable = helper.InStrArray(opt, "nil")
-		fd.ispk = helper.InStrArray(opt, "pk")
-		fd.isuk = helper.InStrArray(opt, "uk")
-		fd.isindex = helper.InStrArray(opt, "index")
-		fd.protected = helper.InStrArray(opt, "protected")
+		for _, o := range opt {
+			switch o {
+			case "pk":
+				fd.ispk = true
+			case "nil":
+				fd.nullable = true
+			case "index":
+				fd.isindex = true
+			case "protected":
+				fd.protected = true
+			}
+		}
 	}
 }
