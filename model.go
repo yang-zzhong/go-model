@@ -23,6 +23,7 @@ type Model interface {
 	Has(name string) bool
 	Get(name string) interface{} // set col value
 	SetFresh(fresh bool)
+	IsFresh() bool
 	OnCreate(handle modify)
 	OnUpdate(handle modify)
 	OnDelete(handle modify)
@@ -94,6 +95,10 @@ func (base *Base) OnUpdate(m modify) {
 
 func (base *Base) OnDelete(m modify) {
 	base.Repo().ondelete = m
+}
+
+func (base *Base) IsFresh() bool {
+	return base.fresh
 }
 
 func (base *Base) SetFresh(fresh bool) {
