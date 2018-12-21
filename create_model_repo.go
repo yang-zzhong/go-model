@@ -4,23 +4,31 @@ import (
 	"strings"
 )
 
-// DropRepo will drop the database table about the repo
-func (repo *Repo) DropRepo() error {
+func (repo *Repo) DropRepoDB(db DB) error {
 	repo.Clean()
 	tableName := repo.QuotedTableName()
-	_, err := repo.exec("DROP TABLE " + tableName)
+	_, err := db.Exec("DROP TABLE " + tableName)
 
 	return err
 }
 
-// CreateRepo will create database table about the repo
+// DropRepo will drop the database table about the repo
+func (repo *Repo) DropRepo() error {
+	return repo.DropRepoDB(GetDefaultDB())
+}
+
 func (repo *Repo) CreateRepo() error {
+	return repo.CreateRepoDB(GetDefaultDB())
+}
+
+// CreateRepo will create database table about the repo
+func (repo *Repo) CreateRepoDB(db DB) error {
 	sqlang, indexes := repo.forCreateTable()
-	if _, err := repo.exec(sqlang); err != nil {
+	if _, err := db.Exec(sqlang, repo.Params()...); err != nil {
 		return err
 	}
 	for _, index := range indexes {
-		if _, err := repo.exec(index); err != nil {
+		if _, err := db.Exec(index); err != nil {
 			return err
 		}
 	}

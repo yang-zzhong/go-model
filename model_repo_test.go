@@ -174,41 +174,9 @@ func TestCreateSlice(t *T) {
 			item.Fill(b)
 			data = append(data, item)
 		}
-		return NewBook().Repo().Create(data)
+		return NewBook().Repo().CreateSlice(data)
 
 	}, t, "create slice")
-}
-
-func TestCreateMap(t *T) {
-	suit(func(t *T) error {
-		var err error
-		user := NewUser()
-		if err = insertUser(user); err != nil {
-			return err
-		}
-		books := []map[string]interface{}{
-			{
-				"id":           "1",
-				"name":         "1",
-				"published_at": time.Now(),
-				"user_id":      user.Id,
-			},
-			{
-				"id":           "2",
-				"name":         "2",
-				"published_at": time.Now(),
-				"user_id":      user.Id,
-			},
-		}
-		data := make(map[interface{}]interface{})
-		for _, b := range books {
-			item := NewBook()
-			item.Fill(b)
-			data[b["id"]] = item
-		}
-		return NewBook().Repo().Create(data)
-
-	}, t, "create map")
 }
 
 func TestUpdate(t *T) {
@@ -384,16 +352,15 @@ func TestTx(t *T) {
 		book := NewBook()
 		insertUser(user)
 		insertBook(book)
-		Conn.Tx(func(tx *sql.Tx) error {
-			user.Repo().WithTx(tx)
+		user.DB().Tx(func(_ *sql.Tx) error {
 			if err := user.Delete(); err != nil {
 				return err
 			}
 			return errors.New("for test tx")
-		}, nil, nil)
-		ms := user.Repo().WithoutTx().MustFetch()
+		})
+		ms := user.Repo().MustFetch()
 		if len(ms) == 0 {
-			errors.New("tx error")
+			return errors.New("tx error")
 		}
 		return nil
 	}, t, "tx")
@@ -514,36 +481,36 @@ func rightModel(m interface{}, vals map[string]interface{}) bool {
 
 func initConn() *sql.DB {
 	var err error
-	var con *sql.DB
-	con, err = sql.Open("mysql", "root:young159357789@/test_go?parseTime=true")
+	var db *sql.DB
+	db, err = sql.Open("mysql", "root:young159357789@/test_go?parseTime=true")
 	if err != nil {
 		panic(err)
 	}
-	Config(con, &MysqlModifier{})
+	RegisterDefaultDB(db, &MysqlModifier{})
 
-	return con
+	return db
 }
 
 func suit(handle handler, t *T, name string) {
 	db := initConn()
-	defer db.Close()
+	defer func() {
+		db.Close()
+		UnregisterDefaultDB()
+	}()
 	ur := createUserRepo()
 	br := createBookRepo()
 	defer func() {
 		if e := recover(); e != nil {
-			log.Print(e)
 			clearRepo(ur)
 			clearRepo(br)
+			log.Print(e)
 		}
 	}()
 	err := handle(t)
+	if err != nil {
+		panic(err)
+	}
 	clearRepo(ur)
 	clearRepo(br)
-	if err != nil {
-		if IsModelErr(err) {
-			log.Print("model error")
-		}
-		t.Fatalf("%v:\t%v", name, err)
-	}
 	log.Printf("%v\t\tOK", name)
 }

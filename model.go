@@ -64,6 +64,7 @@ type Base struct {
 	mapper     *ModelMapper
 	fresh      bool
 	repo       *Repo
+	dbSelector string
 	ones       map[string]relationship // has one relationship
 	manys      map[string]relationship // has many relationship
 	onesValue  map[string]interface{}  // fetched result of has one relationship
@@ -77,6 +78,7 @@ type Base struct {
 func newBase(m interface{}) *Base {
 	base := new(Base)
 	base.fresh = true
+	base.dbSelector = DEFAULT
 	base.mapper = NewModelMapper(m)
 	base.ones = make(map[string]relationship)
 	base.manys = make(map[string]relationship)
@@ -87,6 +89,18 @@ func newBase(m interface{}) *Base {
 
 func (base *Base) OnCreate(m modify) {
 	base.Repo().oncreate = m
+}
+
+func (base *Base) DB() *Db {
+	return GetDB(base.DBSelector())
+}
+
+func (base *Base) DBSelector() string {
+	return base.dbSelector
+}
+
+func (base *Base) SetDBSelector(selector string) {
+	base.dbSelector = selector
 }
 
 func (base *Base) OnUpdate(m modify) {
@@ -210,10 +224,7 @@ func (base *Base) Repo() *Repo {
 	if base.repo != nil {
 		return base.repo
 	}
-	var err error
-	if base.repo, err = NewRepo(base.mapper.model); err != nil {
-		panic(err)
-	}
+	base.repo = NewRepo(base.mapper.model, GetDB(base.DBSelector()), GetModifier(base.DBSelector()))
 
 	return base.repo
 }

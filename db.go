@@ -4,37 +4,74 @@ import (
 	"context"
 	"database/sql"
 	. "github.com/yang-zzhong/go-querybuilder"
-	"sync"
 )
 
+const DEFAULT = "default"
+
 var (
-	instance *Db
-	once     sync.Once
-	db       *sql.DB
-	modifier Modifier
+	instances *Db
+	dbpairs   map[string]dbpair
 )
+
+type DB interface {
+	Exec(string, ...interface{}) (sql.Result, error)
+	Query(string, ...interface{}) (*sql.Rows, error)
+}
 
 // tx callback type
 type txhandler func(t *sql.Tx) error
+
+type dbpair struct {
+	modifier Modifier
+	db       *Db
+}
 
 type Db struct {
 	txs []*sql.Tx
 	*sql.DB
 }
 
-func Config(sdb *sql.DB, m Modifier) {
-	db = sdb
-	modifier = m
+func init() {
+	dbpairs = make(map[string]dbpair)
 }
 
-func GetDB() *Db {
-	once.Do(func() {
-		instance = new(Db)
-		instance.DB = db
-		instance.tx = []*sql.Tx{}
-	})
+func RegisterDefaultDB(db *sql.DB, m Modifier) {
+	RegisterDB(db, m, DEFAULT)
+}
 
-	return instance
+func RegisterDB(db *sql.DB, m Modifier, name string) {
+	dbpairs[name] = dbpair{m, &Db{[]*sql.Tx{}, db}}
+}
+
+func GetDB(name string) *Db {
+	if p, ok := dbpairs[name]; ok {
+		return p.db
+	}
+	panic("db config '" + name + "' not found")
+}
+
+func GetDefaultDB() *Db {
+	return GetDB(DEFAULT)
+}
+
+func GetModifier(name string) Modifier {
+	if p, ok := dbpairs[name]; ok {
+		return p.modifier
+	}
+
+	panic("db config '" + name + "' not found")
+}
+
+func GetDefaultModifier() Modifier {
+	return GetModifier(DEFAULT)
+}
+
+func UnregisterDefaultDB() {
+	UnregisterDB(DEFAULT)
+}
+
+func UnregisterDB(name string) {
+	delete(dbpairs, name)
 }
 
 func (db *Db) TxContext(handle txhandler, ctx context.Context, opts *sql.TxOptions) error {
@@ -49,7 +86,7 @@ func (db *Db) TxContext(handle txhandler, ctx context.Context, opts *sql.TxOptio
 			panic(e)
 		}
 	}()
-	if err := handle(tx); err != nil {
+	if err := handle(db.tx()); err != nil {
 		db.Rollback()
 		return err
 	}
@@ -73,7 +110,7 @@ func (db *Db) Tx(handle txhandler) error {
 			panic(e)
 		}
 	}()
-	if err := handle(tx); err != nil {
+	if err := handle(db.tx()); err != nil {
 		db.Rollback()
 		return err
 	}
@@ -86,135 +123,115 @@ func (db *Db) Tx(handle txhandler) error {
 }
 
 func (db *Db) Begin() error {
-	var err error
-	db.tx, err = db.DB.Begin()
+	tx, err := db.DB.Begin()
+	db.txs = append(db.txs, tx)
 
 	return err
 }
 
 func (db *Db) BeginTx(ctx context.Context, opts *sql.TxOptions) error {
-	var err error
-	tx, err = db.DB.BeginTx(ctx, opts)
+	tx, err := db.DB.BeginTx(ctx, opts)
 	db.txs = append(db.txs, tx)
 
 	return err
 }
 
 func (db *Db) Commit() error {
-	tx = db.tx()
-	if tx != nil {
+	tx := db.tx()
+	if tx == nil {
 		panic("please begin before commit")
 	}
-	err := db.tx.Commit()
+	err := tx.Commit()
 	db.poptx()
 	return err
 }
 
 func (db *Db) Rollback() error {
-	tx = db.tx()
-	if tx != nil {
+	tx := db.tx()
+	if tx == nil {
 		panic("please begin before rollback")
 	}
-	err := db.tx.Rollback()
+	err := tx.Rollback()
 	db.poptx()
-	db.tx = nil
+	return err
 }
 
 func (db *Db) Exec(query string, args ...interface{}) (sql.Result, error) {
-	tx = db.tx()
+	tx := db.tx()
 	if tx != nil {
-		return db.tx.Exec(query, args)
+		return tx.Exec(query, args...)
 	}
 
-	return db.DB.Exec(query, args)
+	return db.DB.Exec(query, args...)
 }
 
 func (db *Db) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	tx = db.tx()
+	tx := db.tx()
 	if tx != nil {
-		return db.tx.ExecContext(ctx, query, args)
+		return tx.ExecContext(ctx, query, args...)
 	}
 
-	return db.DB.Exec(ctx, query, args)
+	return db.DB.ExecContext(ctx, query, args...)
 }
 
-func (db *Db) Prepare(query string) (*Stmt, error) {
-	tx = db.tx()
+func (db *Db) Prepare(query string) (*sql.Stmt, error) {
+	tx := db.tx()
 	if tx != nil {
-		return db.tx.Prepare(query)
+		return tx.Prepare(query)
 	}
 
 	return db.DB.Prepare(query)
 }
 
-func (db *Db) PrepareContext(ctx context.Context, query string) (*Stmt, error) {
-	tx = db.tx()
+func (db *Db) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
+	tx := db.tx()
 	if tx != nil {
-		return db.tx.PrepareContext(query)
+		return tx.PrepareContext(ctx, query)
 	}
 
-	return db.DB.PrepareContext(query)
+	return db.DB.PrepareContext(ctx, query)
 }
 
 func (db *Db) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	tx = db.tx()
+	tx := db.tx()
 	if tx != nil {
-		return db.tx.Query(query, args)
+		return tx.Query(query, args...)
 	}
 
-	return db.DB.Query(query, args)
+	return db.DB.Query(query, args...)
 }
 
 func (db *Db) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	tx = db.tx()
+	tx := db.tx()
 	if tx != nil {
-		return db.tx.QueryContext(ctx, query, args)
+		return tx.QueryContext(ctx, query, args...)
 	}
 
-	return db.DB.QueryContext(ctx, query, args)
+	return db.DB.QueryContext(ctx, query, args...)
 }
 
 func (db *Db) QueryRow(query string, args ...interface{}) *sql.Row {
-	tx = db.tx()
+	tx := db.tx()
 	if tx != nil {
-		return db.tx.QueryRow(query, args)
+		return tx.QueryRow(query, args...)
 	}
 
-	return db.DB.QueryRow(query, args)
+	return db.DB.QueryRow(query, args...)
 }
 
 func (db *Db) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	tx = db.tx()
-	if tx != nil {
-		return tx.QueryRowContext(ctx, query, args)
-	}
-
-	return db.DB.QueryRowContext(ctx, query, args)
-}
-
-func (db *Db) Stmt() *sql.Stmt {
-	tx = db.tx()
-	if tx != nil {
-		return tx.Stmt()
-	}
-
-	return db.DB.Stmt()
-}
-
-func (db *Db) StmtContext(ctx context.Context) *sql.Stmt {
 	tx := db.tx()
 	if tx != nil {
-		return tx.StmtContext(ctx)
+		return tx.QueryRowContext(ctx, query, args...)
 	}
 
-	return db.DB.StmtContext(ctx)
+	return db.DB.QueryRowContext(ctx, query, args...)
 }
 
 func (db *Db) tx() *sql.Tx {
 	if len(db.txs) == 0 {
 		return nil
 	}
-
 	return db.txs[len(db.txs)-1]
 }
 
