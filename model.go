@@ -23,6 +23,7 @@ type Model interface {
 	Has(name string) bool
 	Get(name string) interface{} // set col value
 	SetFresh(fresh bool)
+	DB() *Db
 	IsFresh() bool
 	OnCreate(handle modify)
 	OnUpdate(handle modify)
@@ -224,7 +225,7 @@ func (base *Base) Repo() *Repo {
 	if base.repo != nil {
 		return base.repo
 	}
-	base.repo = NewRepo(base.mapper.model, GetDB(base.DBSelector()), GetModifier(base.DBSelector()))
+	base.repo = NewRepo(base.mapper.model, GetModifier(base.DBSelector()))
 
 	return base.repo
 }

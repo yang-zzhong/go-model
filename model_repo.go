@@ -31,20 +31,18 @@ type with struct {
 // repo
 type Repo struct {
 	model    interface{} // repo row model
-	db       DB
-	modifier Modifier // sql modifier
-	oncreate modify   // on create callback
-	onupdate modify   // on update callback
-	ondelete modify   // on delete callback
-	withs    []with   // maintain fetch model relationship
+	modifier Modifier    // sql modifier
+	oncreate modify      // on create callback
+	onupdate modify      // on update callback
+	ondelete modify      // on delete callback
+	withs    []with      // maintain fetch model relationship
 	*Builder
 }
 
 // new custom repo
-func NewRepo(m interface{}, db DB, p Modifier) *Repo {
+func NewRepo(m interface{}, p Modifier) *Repo {
 	repo := new(Repo)
 	repo.model = m
-	repo.db = db
 	repo.modifier = p
 	repo.oncreate = func(_ interface{}) error { return nil }
 	repo.onupdate = func(_ interface{}) error { return nil }
@@ -59,7 +57,6 @@ func NewRepo(m interface{}, db DB, p Modifier) *Repo {
 func (repo *Repo) Another() *Repo {
 	r := new(Repo)
 	r.model = repo.model
-	r.db = repo.db
 	r.modifier = repo.modifier
 	r.oncreate = repo.oncreate
 	r.onupdate = repo.onupdate
@@ -95,7 +92,8 @@ func (repo *Repo) Clean() {
 }
 
 func (repo *Repo) Count() (int, error) {
-	rows, err := repo.db.Query(repo.ForCount(), repo.Params()...)
+	db := repo.model.(Model).DB()
+	rows, err := db.Query(repo.ForCount(), repo.Params()...)
 	if err != nil {
 		return 0, err
 	}
@@ -118,10 +116,7 @@ func (repo *Repo) MustCount() int {
 }
 
 func (repo *Repo) Query(handle rowshandler) error {
-	return repo.QueryDB(handle, GetDefaultDB())
-}
-
-func (repo *Repo) QueryDB(handle rowshandler, db DB) error {
+	db := repo.model.(Model).DB()
 	rows, err := db.Query(repo.ForQuery(), repo.Params()...)
 	if err != nil {
 		return err
@@ -268,12 +263,14 @@ func (repo *Repo) Find(id interface{}) (interface{}, bool, error) {
 }
 
 func (repo *Repo) UpdateRaw(raw map[string]interface{}) error {
-	_, err := repo.db.Exec(repo.ForUpdate(raw), repo.Params()...)
+	db := repo.model.(Model).DB()
+	_, err := db.Exec(repo.ForUpdate(raw), repo.Params()...)
 	return err
 }
 
 func (repo *Repo) DeleteRaw(raw map[string]interface{}) error {
-	_, err := repo.db.Exec(repo.ForRemove(), repo.Params()...)
+	db := repo.model.(Model).DB()
+	_, err := db.Exec(repo.ForRemove(), repo.Params()...)
 	return err
 }
 
@@ -288,7 +285,8 @@ func (repo *Repo) Update(model interface{}) error {
 	}
 	r := repo.Another()
 	sql := r.Where(field, v).ForUpdate(repo.model.(Mapable).Mapper().extract(model))
-	_, err = repo.db.Exec(sql, r.Params()...)
+	db := repo.model.(Model).DB()
+	_, err = db.Exec(sql, r.Params()...)
 
 	return err
 }
@@ -302,7 +300,8 @@ func (repo *Repo) CreateSlice(models []interface{}) error {
 		}
 		data = append(data, r.model.(Mapable).Mapper().extract(m))
 	}
-	if _, err := repo.db.Exec(r.ForInsert(data), r.Params()...); err != nil {
+	db := repo.model.(Model).DB()
+	if _, err := db.Exec(r.ForInsert(data), r.Params()...); err != nil {
 		return err
 	}
 	for _, m := range models {
@@ -319,7 +318,8 @@ func (repo *Repo) Create(model interface{}) error {
 	}
 	data = append(data, repo.model.(Mapable).Mapper().extract(model))
 	r := repo.Another()
-	if _, err := repo.db.Exec(r.ForInsert(data), r.Params()...); err != nil {
+	db := repo.model.(Model).DB()
+	if _, err := db.Exec(r.ForInsert(data), r.Params()...); err != nil {
 		return err
 	}
 	model.(Model).SetFresh(false)
@@ -337,7 +337,8 @@ func (repo *Repo) Delete(model interface{}) error {
 		return err
 	}
 	r := repo.Another()
-	_, err = r.db.Exec(r.Where(field, v).ForRemove(), r.Params()...)
+	db := repo.model.(Model).DB()
+	_, err = db.Exec(r.Where(field, v).ForRemove(), r.Params()...)
 	return err
 }
 
@@ -352,6 +353,7 @@ func (repo *Repo) DeleteSlice(models []interface{}) error {
 		ids = append(ids, v)
 	}
 	r := repo.Another()
-	_, err := r.db.Exec(r.WhereIn(field, ids).ForRemove(), r.Params()...)
+	db := repo.model.(Model).DB()
+	_, err := db.Exec(r.WhereIn(field, ids).ForRemove(), r.Params()...)
 	return err
 }
