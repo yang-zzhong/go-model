@@ -143,11 +143,15 @@ func (repo *Repo) MustFetch() []interface{} {
 	}
 }
 
-func (repo *Repo) Fetch() (models []interface{}, err error) {
-	err = repo.fetch(func(m interface{}, _ interface{}) error {
+func (repo *Repo) Fetch() ([]interface{}, error) {
+	return repo.FetchDB(GetDB())
+}
+
+func (repo *Repo) FetchDB(db DB) (models []interface{}, err error) {
+	err = repo.fetchDB(func(m interface{}, _ interface{}) error {
 		models = append(models, m)
 		return nil
-	})
+	}, db)
 	if err != nil {
 		return
 	}
@@ -170,14 +174,18 @@ func (repo *Repo) MustFetchKey(col string) map[interface{}]interface{} {
 	}
 }
 
-func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err error) {
+func (repo *Repo) FetchKey(col string) (map[interface{}]interface{}, error) {
+	return repo.FetchKeyDB(col, GetDB())
+}
+
+func (repo *Repo) FetchKeyDB(col string, db DB) (models map[interface{}]interface{}, err error) {
 	models = make(map[interface{}]interface{})
 	forNexusValues := []interface{}{}
-	err = repo.fetch(func(m interface{}, id interface{}) error {
+	err = repo.fetchDB(func(m interface{}, id interface{}) error {
 		models[id] = m
 		forNexusValues = append(forNexusValues, m)
 		return nil
-	})
+	}, db)
 	if err != nil {
 		return
 	}
@@ -192,10 +200,10 @@ func (repo *Repo) FetchKey(col string) (models map[interface{}]interface{}, err 
 	return
 }
 
-func (repo *Repo) fetch(handle handlerForQueryModel) error {
+func (repo *Repo) fetchDB(handle handlerForQueryModel, db DB) error {
 	var cols []interface{}
 	colget := false
-	return repo.Query(func(rows *sql.Rows, columns []string) error {
+	return repo.QueryDB(func(rows *sql.Rows, columns []string) error {
 		var err error
 		if !colget {
 			if cols, err = repo.model.(Mapable).Mapper().cols(columns); err != nil {
@@ -225,8 +233,8 @@ func (repo *Repo) MustOne() interface{} {
 	}
 }
 
-func (repo *Repo) One() (interface{}, bool, error) {
-	if rows, err := repo.Fetch(); err != nil {
+func (repo *Repo) OneDB(db DB) (interface{}, bool, error) {
+	if rows, err := repo.Fetch(db); err != nil {
 		return nil, false, err
 	} else {
 		for _, row := range rows {
@@ -235,6 +243,9 @@ func (repo *Repo) One() (interface{}, bool, error) {
 	}
 
 	return nil, false, nil
+}
+func (repo *Repo) One() (interface{}, bool, error) {
+	return repo.One(GetDB())
 }
 
 func (repo *Repo) MustFind(id interface{}) interface{} {
@@ -248,9 +259,13 @@ func (repo *Repo) MustFind(id interface{}) interface{} {
 }
 
 func (repo *Repo) Find(id interface{}) (interface{}, bool, error) {
-	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
+	return repo.FindDB(id, GetDB())
+}
+
+func (repo *Repo) FindDB(id interface{}, db DB) (interface{}, bool, error) {
+	r := NewCustomRepo(repo.model, repo.modifier)
 	r.Where(repo.model.(Model).PK(), id).Limit(1)
-	if rows, err := r.Fetch(); err != nil {
+	if rows, err := r.FetchDB(db); err != nil {
 		return nil, false, err
 	} else {
 		for _, row := range rows {
@@ -261,41 +276,29 @@ func (repo *Repo) Find(id interface{}) (interface{}, bool, error) {
 	return nil, false, nil
 }
 
+func (repo *Repo) UpdateRawDB(raw map[string]interface{}, db DB) error {
+	_, err := db.Exec(repo.ForUpdate(raw), repo.Params()...)
+	return err
+}
+
 func (repo *Repo) UpdateRaw(raw map[string]interface{}) error {
-	_, err := repo.exec(repo.ForUpdate(raw))
+	return repo.UpdateRawDB(raw)
+}
+
+func (repo *Repo) DeleteRawDB(db DB) error {
+	_, err := db.Exec(repo.ForRemove(), repo.Params()...)
 	return err
 }
 
 func (repo *Repo) DeleteRaw() error {
-	_, err := repo.exec(repo.ForRemove())
-	return err
-}
-
-func (repo *Repo) UpdateSlice(models []interface{}, db DB) error {
-	mm := repo.model.(Mapable).Mapper()
-	field := repo.model.(Model).PK()
-	ids := []interface{}{}
-	for _, m := range models {
-		v, err := mm.colValue(m, field)
-		if err != nil {
-			return err
-		}
-		ids = append(ids, v)
-		if err := repo.onupdate(m); err != nil {
-			return err
-		}
-	}
-	if len(ids) > 0 {
-		repo.WhereIn(field, ids)
-		if err := r.UpdateRaw(mm.extract(m)); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return repo.DeleteRawDB(GetDB())
 }
 
 func (repo *Repo) Update(model interface{}) error {
+	repo.UpdateDB(model, GetDB())
+}
+
+func (repo *Repo) UpdateDB(model interface{}, db DB) error {
 	v, err := mm.colValue(model, field)
 	if err != nil {
 		return err
@@ -303,9 +306,11 @@ func (repo *Repo) Update(model interface{}) error {
 	if err := repo.onupdate(model); err != nil {
 		return err
 	}
-	r.Where(field, v)
+	r := NewCustomRepo(repo.model, repo.modifier)
+	sql := r.Where(field, v).ForUpdate()
+	_, err := db.Exec(sql, r.Params()...)
 
-	return r.UpdateRaw(mm.extract(model))
+	return err
 }
 
 func (repo *Repo) CreateSlice(models []interface{}) error {
@@ -350,112 +355,39 @@ func (repo *Repo) CreateDB(model interface{}, db DB) error {
 	return nil
 }
 
-func (repo *Repo) Delete(models interface{}) error {
-	val := reflect.ValueOf(models)
-	for val.Kind() == reflect.Ptr {
-		val = val.Elem()
+func (repo *Repo) DeleteDB(model interface{}, db DB) error {
+	if err := repo.ondelete(model); err != nil {
+		return err
 	}
-	r := NewCustomRepo(repo.model, repo.conn, repo.modifier)
-	r.tx = repo.tx
-	field := r.model.(Model).PK()
-	ins := []interface{}{}
-	mm := r.model.(Mapable).Mapper()
-	ms := []interface{}{}
-	switch val.Kind() {
-	case reflect.Struct:
-		if err := repo.ondelete(models); err != nil {
-			return err
-		}
-		if v, err := mm.colValue(models, field); err == nil {
-			ins = append(ins, v)
-			ms = append(ms, models)
-		} else {
-			return err
-		}
-	case reflect.Slice:
-		slice := val.Interface().([]interface{})
-		for _, m := range slice {
-			if err := repo.ondelete(m); err != nil {
-				return err
-			}
-			if v, err := mm.colValue(m, field); err == nil {
-				ins = append(ins, v)
-				ms = append(ms, m)
-			} else {
-				return err
-			}
-		}
-	case reflect.Map:
-		maps := val.Interface().([]interface{})
-		for _, m := range maps {
-			if err := repo.ondelete(m); err != nil {
-				return err
-			}
-			if v, err := mm.colValue(m, field); err == nil {
-				ins = append(ins, v)
-				ms = append(ms, m)
-			} else {
-				return err
-			}
-		}
+	field := repo.model.(Model).PK()
+	v, err := mm.colValue(model, field)
+	if err != nil {
+		return err
 	}
-	if len(ins) == 0 {
-		return nil
-	}
-	r.WhereIn(field, ins)
-	err := r.DeleteRaw()
-	if err == nil {
-		for _, m := range ms {
-			m.(Model).SetFresh(true)
-		}
-	}
-
+	r := NewCustomRepo(repo.model, repo.modifier)
+	_, err := db.Exec(r.Where(field, v).ForRemove(), r.Params()...)
 	return err
 }
 
-func (repo *Repo) exec(sql string) (res sql.Result, err error) {
-	// defer func() {
-	// 	if e := recover(); e != nil {
-	// 		switch e.(type) {
-	// 		case string:
-	// 			err = &Error{ERR_SQL, errors.New(e.(string))}
-	// 		case error:
-	// 			err = &Error{ERR_SQL, e.(error)}
-	// 		}
-	// 	}
-	// }()
-	// if repo.tx != nil {
-	// 	if r, e := repo.tx.Exec(sql, repo.Params()...); e != nil {
-	// 		err = &Error{ERR_SQL, e}
-	// 	} else {
-	// 		res = r
-	// 	}
-	// } else {
-	// 	if r, e := repo.db.Exec(sql, repo.Params()...); e != nil {
-	// 		err = &Error{ERR_SQL, e}
-	// 	} else {
-	// 		res = r
-	// 	}
-	// }
-	// return
+func (repo *Repo) Delete(model interface{}) error {
+	return repo.DeleteDB(model, GetDB())
 }
 
-func (repo *Repo) query() (rows *sql.Rows, err error) {
-	// defer func() {
-	// 	if e := recover(); e != nil {
-	// 		switch e.(type) {
-	// 		case string:
-	// 			err = &Error{ERR_SQL, errors.New(e.(string))}
-	// 		case error:
-	// 			err = &Error{ERR_SQL, e.(error)}
-	// 		}
-	// 	}
-	// }()
-	// if r, e := repo.conn.Query(repo.ForQuery(), repo.Params()...); e != nil {
-	// 	err = &Error{ERR_SQL, e}
-	// } else {
-	// 	rows = r
-	// }
+func (repo *Repo) DeleteSlice(models []interface{}) error {
+	return repo.DeleteSliceDB(models, GetDB())
+}
 
-	// return
+func (repo *Repo) DeleteSliceDB(models []interface{}, db DB) error {
+	field := repo.model.(Model).PK()
+	ids := []interface{}{}
+	for _, model := range models {
+		v, err := mm.colValue(model, field)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, v)
+	}
+	r := NewCustomRepo(repo.model, repo.modifier)
+	_, err := db.Exec(r.WhereIn(field, ids).ForRemove(), r.Params()...)
+	return err
 }
