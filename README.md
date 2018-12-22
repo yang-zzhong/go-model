@@ -5,8 +5,20 @@
 
 import (
     model "github.com/yang-zzhong/go-model"
+    query "github.com/yang-zzhong/go-querybuilder"
+    "database/sql"
+    _ "github.com/lib/pq"
     "time"
 )
+
+// init
+func init() {
+    db, err := sql.Open("postgres", "postgres://test:123456@host.com/database")
+    if err != nil {
+        panic(err)
+    }
+    model.RegisterDefaultDB(db, &query.PgsqlModifier{})
+}
 
 // define a model
 type User struct {
@@ -20,15 +32,16 @@ type User struct {
 func (user *User) TableName() string {
     return "user"
 }
-// user constructor
-func NewUser() *User {
-    user := NewModel(new(User)).(*User)
-    user.Id = helpers.RandString(32)
+
+func (user *User) Prepare() {
     user.DeclareMany("books", new(Book), map[string]string {
         "id": "author_id",
     })
+}
 
-    return user
+// user constructor
+func NewUser() *User {
+    return NewModel(new(User)).(*User)
 }
 
 type Book struct {
@@ -42,15 +55,16 @@ type Book struct {
 func (book *Book) TableName() {
     return "books"
 }
-// define book constructor
-func NewBook() *Book {
-    book := NewModel(new(Book)).(*Book)
-    book.Id = helpers.RandString(32)
+
+func (book *Book) Prepare() {
     book.DeclareOne("author", new(User), map[string]string{
         "author_id": "id",
     })
+}
 
-    return book
+// define book constructor
+func NewBook() *Book {
+    return NewModel(new(Book)).(*Book)
 }
 
 // create user
@@ -75,48 +89,30 @@ if err := book.Save(); err != nil {
 }
 
 // get many book
-if books, err := user.Many("books"); err != nil {
-    panic(err)
-} else {
-    for book_id, m := range books {
-        book := m.(*Book)
-        // handle book
-    }
+books := user.MustMany("books")
+for _, m := range books {
+    book := m.(*Book)
+    // handle book
 }
 
 // get one author
-if m, err := user.One("author"); err != nil {
-    panic(err)
-} else {
-    author := m.(*User)
-    // handle author
-}
+m := user.MustOne("author")
+author := m.(*User)
+// handle author
 
 // fetch user with many book
-if models, err := user.Repo().With("books").Fetch(); err != nil {
-    panic(err)
-} else {
-    for id, m := range models {
-        user := m.(*User)
-        if books, err := user.Many("books"); err == nil {
-            // handle books
-        } else {
-            panic(err)
-        }
-    }
+models := user.Repo().With("books").MustFetch()
+for _, m := range models {
+    user := m.(*User)
+    books := user.MustMany("books")
 }
 
 // fetch book with one author
-if models, err := book.Repo().With("author").Fetch(); err != nil {
-    panic(err)
-} else {
-    for id, m := range models {
-        book := m.(*Book)
-        if author, err := book.One("author"); err == nil {
-            // handle user
-        } else {
-            panic(err)
-        }
-    }
+models := book.Repo().With("author").MustFetch()
+for _, m := range models {
+    book := m.(*Book)
+    author := book.MustOne("author")
 }
 ```
+
+[doc](https://booblogger.com/go-model)
