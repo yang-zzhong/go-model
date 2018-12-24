@@ -41,7 +41,7 @@ func (u *User) Prepare() {
 }
 
 func NewUser() *User {
-	return NewModel(new(User)).(*User)
+	return New(new(User)).(*User)
 }
 
 type Book struct {
@@ -62,7 +62,7 @@ func (b *Book) Prepare() {
 }
 
 func NewBook() *Book {
-	return NewModel(new(Book)).(*Book)
+	return New(new(Book)).(*Book)
 }
 
 type withCustomCount struct {

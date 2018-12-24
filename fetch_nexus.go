@@ -100,7 +100,7 @@ func (repo *Repo) nexusValues(models []interface{}) (result []nexusResult, err e
 			err = &Error{ERR_NEXUS_UNDEFINED, errors.New("nexus " + w.name + " not exists")}
 			return
 		}
-		nm := NewModel(w.m)
+		nm := New(w.m)
 		r := nm.(Model).Repo()
 		for af, bf := range w.n {
 			switch bf.(type) {

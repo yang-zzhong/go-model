@@ -41,7 +41,7 @@ func (user *User) Prepare() {
 
 // user constructor
 func NewUser() *User {
-    return model.NewModel(new(User)).(*User)
+    return model.New(new(User)).(*User)
 }
 
 type Book struct {
@@ -64,7 +64,7 @@ func (book *Book) Prepare() {
 
 // define book constructor
 func NewBook() *Book {
-    return model.NewModel(new(Book)).(*Book)
+    return model.New(new(Book)).(*Book)
 }
 
 // create user

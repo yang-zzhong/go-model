@@ -170,7 +170,7 @@ func (base *Base) findOne(name string) (result interface{}, err error) {
 		err = errors.New("nexus of " + name + "does not exist")
 		return
 	}
-	m := NewModel(one).(Model)
+	m := New(one).(Model)
 	repo := m.Repo()
 	for af, bf := range n {
 		switch bf.(type) {
@@ -196,7 +196,7 @@ func (base *Base) findMany(name string) (result interface{}, err error) {
 	if many, rel, has = base.HasMany(name); !has {
 		return
 	}
-	m := NewModel(many).(Model)
+	m := New(many).(Model)
 	repo := m.Repo()
 	for af, bf := range rel {
 		switch bf.(type) {
@@ -359,7 +359,7 @@ func (base *Base) PK() string {
 	return base.mapper.pk
 }
 
-func NewModel(m interface{}) interface{} {
+func New(m interface{}) interface{} {
 	value := reflect.ValueOf(m)
 	field := value.Elem().FieldByName("Base")
 	field.Set(reflect.ValueOf(newBase(m)))

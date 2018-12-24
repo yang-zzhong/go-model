@@ -303,7 +303,7 @@ func (mm *ModelMapper) pack(columns []string, cols []interface{}, key string) (m
 			id = value.Interface()
 		}
 	}
-	model = NewModel(v.Addr().Interface())
+	model = New(v.Addr().Interface())
 	model.(Model).SetFresh(false)
 
 	return
