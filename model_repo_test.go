@@ -503,7 +503,7 @@ func suit(handle handler, t *T, name string) {
 		if e := recover(); e != nil {
 			clearRepo(ur)
 			clearRepo(br)
-			log.Print(e)
+			t.Error(e)
 		}
 	}()
 	err := handle(t)
