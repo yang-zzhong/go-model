@@ -272,14 +272,6 @@ func (base *Base) Many(name string) (many interface{}, err error) {
 	return
 }
 
-func (base *Base) ManyOrFail(name string) interface{} {
-	if many, err := base.Many(name); err == nil {
-		return many
-	} else {
-		panic(err)
-	}
-}
-
 func (base *Base) MarshalJSON() ([]byte, error) {
 	return json.Marshal(base.Map())
 }
