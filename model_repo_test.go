@@ -147,7 +147,7 @@ func TestSet(t *T) {
 	}, t, "set")
 }
 
-func TestCreateSlice(t *T) {
+func TestCreates(t *T) {
 	suit(func(t *T) error {
 		var err error
 		user := NewUser()
@@ -174,7 +174,7 @@ func TestCreateSlice(t *T) {
 			item.Fill(b)
 			data = append(data, item)
 		}
-		return NewBook().Repo().CreateSlice(data)
+		return NewBook().Repo().Creates(data)
 
 	}, t, "create slice")
 }

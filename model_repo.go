@@ -291,7 +291,7 @@ func (repo *Repo) Update(model interface{}) error {
 	return err
 }
 
-func (repo *Repo) CreateSlice(models []interface{}) error {
+func (repo *Repo) Creates(models []interface{}) error {
 	r := repo.Another()
 	var data []map[string]interface{}
 	for _, m := range models {
@@ -342,7 +342,7 @@ func (repo *Repo) Delete(model interface{}) error {
 	return err
 }
 
-func (repo *Repo) DeleteSlice(models []interface{}) error {
+func (repo *Repo) Deletes(models []interface{}) error {
 	field := repo.model.(Model).PK()
 	ids := []interface{}{}
 	for _, model := range models {
