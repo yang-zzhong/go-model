@@ -1,5 +1,5 @@
 ## go model and repo
-
+visit [go-model doc](https://booblogger.com/go-model) from detail
 ### sample
 ```go
 
@@ -114,5 +114,3 @@ for _, m := range models {
     author := book.MustOne("author")
 }
 ```
-
-[doc](https://booblogger.com/go-model)
