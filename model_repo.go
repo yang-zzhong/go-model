@@ -216,10 +216,8 @@ func (repo *Repo) fetch(handle handlerForQueryModel) error {
 }
 
 func (repo *Repo) MustOne() interface{} {
-	if m, exist, err := repo.One(); err != nil {
+	if m, _, err := repo.One(); err != nil {
 		panic(err)
-	} else if !exist {
-		panic(&Error{ERR_DATA_NOT_FOUND, errors.New("data not found")})
 	} else {
 		return m
 	}
@@ -238,10 +236,8 @@ func (repo *Repo) One() (interface{}, bool, error) {
 }
 
 func (repo *Repo) MustFind(id interface{}) interface{} {
-	if m, exist, err := repo.Find(id); err != nil {
+	if m, _, err := repo.Find(id); err != nil {
 		panic(err)
-	} else if !exist {
-		panic(&Error{ERR_DATA_NOT_FOUND, errors.New("data not found")})
 	} else {
 		return m
 	}
