@@ -245,8 +245,6 @@ func (base *Base) One(name string) (one interface{}, err error) {
 func (base *Base) MustOne(name string) interface{} {
 	if one, err := base.One(name); err != nil {
 		panic(err)
-	} else if one == nil {
-		panic(errors.New("one not exists"))
 	} else {
 		return one
 	}
