@@ -47,13 +47,13 @@ func newFd(fieldname string, src string) *fieldDescriptor {
 // }
 //
 func (fd *fieldDescriptor) parse(src string) {
-	arr := strings.Split(src, " ")
-	fd.colname = arr[0]
-	fd.coltype = arr[1]
+	arr := strings.Split(src, "|")
+	fd.colname = strings.Trim(arr[0], " ")
+	fd.coltype = strings.Trim(arr[1], " ")
 	if len(arr) == 3 {
 		opt := strings.Split(arr[2], ",")
 		for _, o := range opt {
-			switch o {
+			switch strings.Trim(o, " ") {
 			case "pk":
 				fd.ispk = true
 			case "nil":

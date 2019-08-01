@@ -7,13 +7,13 @@ import (
 )
 
 type TestUser struct {
-	Id        string    `db:"id varchar(128) pk"`
-	Name      string    `db:"name varchar(32) uk"`
-	Age       int       `db:"age int"`
-	Level     int       `db:"level int nil"`
-	Optional  string    `db:"optional varchar(256) nil"`
-	CreatedAt time.Time `db:"created_at datetime"`
-	UpdatedAt time.Time `db:"updated_at datetime nil"`
+	Id        string    `db:"id | varchar(128) | pk"`
+	Name      string    `db:"name | varchar(32) | uk"`
+	Age       int       `db:"age | int"`
+	Level     int       `db:"level | int | nil"`
+	Optional  string    `db:"optional | varchar(256) | nil"`
+	CreatedAt time.Time `db:"created_at | datetime"`
+	UpdatedAt time.Time `db:"updated_at | datetime | nil"`
 	*Base
 }
 

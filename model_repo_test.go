@@ -14,12 +14,12 @@ import (
 type handler func(*T) error
 
 type User struct {
-	Id        string    `db:"id varchar(128) pk"`
-	Name      string    `db:"name varchar(32) uk"`
-	Age       int       `db:"age int"`
-	Level     int       `db:"level int"`
-	Optional  string    `db:"optional varchar(256) nil"`
-	CreatedAt time.Time `db:"created_at datetime nil"`
+	Id        string    `db:"id | varchar(128) | pk"`
+	Name      string    `db:"name | varchar(32) | uk"`
+	Age       int       `db:"age | int"`
+	Level     int       `db:"level | int"`
+	Optional  string    `db:"optional | varchar(256) | nil"`
+	CreatedAt time.Time `db:"created_at | datetime | nil"`
 	*Base
 }
 
@@ -45,9 +45,9 @@ func NewUser() *User {
 }
 
 type Book struct {
-	Id     string `db:"id varchar(128) pk"`
-	UserId string `db:"user_id varchar(128)"`
-	Name   string `db:"name varchar(128)"`
+	Id     string `db:"id | varchar(128) | pk"`
+	UserId string `db:"user_id | varchar(128)"`
+	Name   string `db:"name | varchar(128)"`
 	*Base
 }
 
