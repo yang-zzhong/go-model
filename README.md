@@ -1,5 +1,5 @@
 ## go model and repo
-visit [go-model doc](https://booblogger.com/go-model) from detail
+
 ### sample
 ```go
 
